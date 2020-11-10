@@ -152,7 +152,7 @@ def create_file_extension_filter(required_file_extensions: set, optional_file_ex
 
 def filter_files(repo_df: pd.DataFrame, file_extensions: set = None):
     if file_extensions is None:
-        file_extensions = DEFAULT_VALID_FILE_EXTENSIONS
+        file_extensions = set(DEFAULT_VALID_FILE_EXTENSIONS)
     else:
         assert type(file_extensions) == set, "file_extensions must be a set"
 
@@ -163,10 +163,10 @@ def filter_files(repo_df: pd.DataFrame, file_extensions: set = None):
         required_file_extensions = file_extensions
         optional_file_extensions = set(EXTRACTABLE_FILE_EXTENSIONS.keys())
 
-        logger.info("Filtering repository files based on the following required file extensions [%s] and the "
+        logger.info("Filtering repository files based on the following required file extensions [\"%s\"] and the "
                     "following optional file extensions [%s]" % (
-                        ", ".join(required_file_extensions),
-                        ", ".join(optional_file_extensions)))
+                        "\", \"".join(required_file_extensions),
+                        "\", \"".join(optional_file_extensions)))
 
         file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
         filtered_files = repo_df[repo_df.fileName.apply(file_extension_filter)]
@@ -201,9 +201,9 @@ def extract_if_possible(filename: str, skip_existing=True):
     return new_filename
 
 
-def strip_archive_extension(filename):
+def strip_archive_extension(filename: str):
     parts = filename.split(".")
-    if parts[-1] in EXTRACTABLE_FILE_EXTENSIONS:
+    if parts[-1].lower() in EXTRACTABLE_FILE_EXTENSIONS:
         return ".".join(parts[:-1]), True
     else:
         return filename, False
