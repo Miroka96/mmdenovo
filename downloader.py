@@ -2,7 +2,6 @@
 
 import requests
 import json
-from pandas.io.json import json_normalize
 import pandas as pd
 import wget
 import os
@@ -11,7 +10,14 @@ import log
 from utils import ensure_dir_exists
 
 PRIDE_API_LIST_REPO_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
-DEFAULT_VALID_FILE_EXTENSIONS = ["mzid", "mzML"]
+DEFAULT_VALID_FILE_EXTENSIONS = ["mzid", "mzml"]
+EXTRACTABLE_FILE_EXTENSIONS = {
+    "gz": {
+        "command": 'gunzip "%s"'
+    },
+    "zip": {
+        "command": 'unzip "%s"'
+    }}
 
 logger = log.DummyLogger(send_welcome=False)
 
@@ -46,6 +52,9 @@ class Config:
                             default=DEFAULT_VALID_FILE_EXTENSIONS,
                             help="allowed file extensions to filter the files to be downloaded. An empty lists "
                                  "deactivates filtering.")
+        parser.add_argument("-s", "--skip-existing",
+                            action="store_true",
+                            help="skip existing files as far as possible")
         # store_true turns "verbose" into a flag:
         # The existence of "verbose" equals True, the lack of existence equals False
         parser.add_argument("-v", "--verbose",
@@ -58,7 +67,7 @@ class Config:
         self.max_num_files = args.max_num_files
         self.download_dir = args.download_dir
         self.log_file = args.log_file
-        self.valid_file_extensions = args.valid_file_extensions
+        self.valid_file_extensions = {ext.lower() for ext in args.valid_file_extensions}
         self.verbose = args.verbose
 
     def validate_arguments(self):
@@ -93,27 +102,45 @@ def get_repo_files(repo_name: str):
     response = requests.get(repo_link)
     logger.debug("Received response from %s with length of %d bytes" % (repo_link, len(response.text)))
     response = json.loads(response.text)
-    df = pd.DataFrame(json_normalize(response['list']))
+    df = pd.DataFrame(pd.json_normalize(response['list']))
     logger.info("Received list of %d repository files" % len(df))
     return df
 
 
-def get_file_links(repo_df: pd.DataFrame, num_files: int, file_extensions: list = None):
+def create_file_extension_validator(required_file_extensions: set, optional_file_extensions: set = None):
+    def validate_file_extension(filename: str):
+        filename = filename.lower()
+        extensions = reversed(filename.split("."))
+        extension = next(extensions)
+        if optional_file_extensions is not None:
+            if extension in optional_file_extensions:
+                extension = next(extensions, extension)
+        return extension in required_file_extensions
+
+    return validate_file_extension
+
+
+def get_file_links(repo_df: pd.DataFrame, num_files: int, file_extensions: set = None):
     if file_extensions is None:
         file_extensions = DEFAULT_VALID_FILE_EXTENSIONS
     else:
-        assert type(file_extensions) == list, "valid_file_extensions must be a list"
+        assert type(file_extensions) == set, "file_extensions must be a set"
 
     if len(file_extensions) == 0:
         logger.debug("Skipping file extension filtering")
         filtered_files = repo_df
     else:
-        file_extensions = ["." + ext for ext in file_extensions]
-        logger.info("Filtering repository files based on the following file extensions: " + ", ".join(file_extensions))
-        valid_files = repo_df.fileName.str.endswith(file_extensions[0])
-        for ext in file_extensions[1:]:
-            valid_files = valid_files | repo_df.fileName.str.endswith(ext)
-        filtered_files = repo_df[valid_files]
+        required_file_extensions = file_extensions
+        optional_file_extensions = set(EXTRACTABLE_FILE_EXTENSIONS.keys())
+
+        logger.info("Filtering repository files based on the following required file extensions [%s] and the "
+                    "following optional file extensions [%s]" % (
+                        ", ".join(required_file_extensions),
+                        ", ".join(optional_file_extensions)))
+
+        file_extension_validator = create_file_extension_validator(required_file_extensions, optional_file_extensions)
+        filtered_files = repo_df[repo_df.fileName.apply(file_extension_validator)]
+
     logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
 
     download_links = filtered_files.downloadLink
@@ -126,20 +153,63 @@ def get_file_links(repo_df: pd.DataFrame, num_files: int, file_extensions: list 
     return list(sorted_download_links)
 
 
-def download_files(links: list):
+def extract(filename: str, skip_existing=True):
+    lower_filename = filename.lower()
+    command = None
+    new_filename = filename
+
+    for ext, conf in EXTRACTABLE_FILE_EXTENSIONS.items():
+        if lower_filename.endswith("." + ext):
+            command = conf["command"] % filename
+            new_filename = filename[:-(len(ext) + 1)]
+            break
+
+    if command is None:
+        return new_filename
+
+    if skip_existing and os.path.isfile(new_filename):
+        logger.info('Skipping extraction, because "%s" already exists' % new_filename)
+    else:
+        logger.info("Extracting downloaded file using '%s'" % command)
+        return_code = os.system(command)
+        if return_code == 0:
+            logger.info("Extracted downloaded file")
+        else:
+            logger.info('Failed extracting downloaded file "%s" (return code = %d)' % (filename, return_code))
+
+    return new_filename
+
+
+def strip_last_extension(filename):
+    return ".".join(filename.split(".")[:-1])
+
+
+def download_files(links: list, skip_existing=True):
     link_count = len(links)
     logger.info("Downloading %d files" % link_count)
+    files_downloaded_count = 0
     for i, link in enumerate(links):
-        logger.info("Downloading file %d/%d: %s" % (i+1, link_count, link))
-        downloaded_file = wget.download(link)
-        logger.info("Downloaded file %d/%d: %s" % (i+1, link_count, link))
-        if downloaded_file.endswith(".gz"):
-            logger.info("Extracting downloaded file " + downloaded_file)
-            os.system('gunzip ' + downloaded_file)
-            logger.info("Extracted downloaded file")
+        logger.info("Downloading file %d/%d: %s" % (i + 1, link_count, link))
+        filename = link.split("/")[-1]
+        if skip_existing:
+            if os.path.isfile(filename):
+                logger.info('Skipping download, because "%s" already exists' % filename)
+                downloaded_file = filename
+            else:
+                stripped_filename = strip_last_extension(filename)
+                if os.path.isfile(stripped_filename):
+                    logger.info('Skipping download and extraction, because extracted file "%s" already exists' %
+                                stripped_filename)
+                continue
+        else:
+            downloaded_file = wget.download(link)
+            files_downloaded_count += 1
+            logger.info("Downloaded file %d/%d: %s" % (i + 1, link_count, link))
+        extract(downloaded_file, skip_existing=skip_existing)
+    logger.info("Finished downloading %d files" % files_downloaded_count)
 
 
-def main(config: Config = None):
+def run_downloader(config: Config = None):
     if config is None:
         config = Config()
         config.parse_arguments()
@@ -158,4 +228,4 @@ def main(config: Config = None):
 
 
 if __name__ == '__main__':
-    main()
+    run_downloader()
