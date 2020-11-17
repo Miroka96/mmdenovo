@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import sys
 
 import requests
 import json
@@ -9,7 +10,8 @@ import argparse
 import log
 from utils import ensure_dir_exists
 
-PRIDE_API_LIST_REPO_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
+PRIDE_API_LIST_PROJECT_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
+PRIDE_API_GET_PROJECT_SUMMARY = "https://www.ebi.ac.uk:443/pride/ws/archive/project/%s"
 DEFAULT_VALID_FILE_EXTENSIONS = ["mzid", "mzml"]
 EXTRACTABLE_FILE_EXTENSIONS = {
     "gz": {
@@ -34,11 +36,12 @@ def deduplicate(lst: list):
 
 class Config:
     def __init__(self):
-        self.pride_repo = None
+        self.pride_project = None
         self.max_num_files = None
         self.count_failed_files = None
         self.download_dir = None
         self.log_file = None
+        self.log_to_stdout = None
         self.valid_file_extensions = None
         self.skip_existing = None
         self.extract = None
@@ -48,16 +51,16 @@ class Config:
     def parse_arguments(self):
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-        parser.add_argument("pride_repo",
-                            help="the name of the PRIDE repository, e.g. 'PXD010000' " +
-                                 "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'")
         parser.add_argument("command",
                             nargs='*',
                             choices=list(COMMAND_DISPATCHER.keys()),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.")
-
+        parser.add_argument("-p", "--pride-project",
+                            help="the name of the PRIDE project, e.g. 'PXD010000' " +
+                                 "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'." +
+                                 "For some commands, this parameter is required.")
         parser.add_argument("-n", "--max-num-files",
                             default=2,
                             type=int,
@@ -73,6 +76,9 @@ class Config:
         parser.add_argument("-l", "--log-file",
                             default="downloader.log",
                             help="the name of the log file, relative to the download directory.")
+        parser.add_argument("--log-to-stdout",
+                            action="store_true",
+                            help="Log to stdout instead of stderr.")
         parser.add_argument("-t", "--valid-file-extensions",
                             nargs='+',
                             default=DEFAULT_VALID_FILE_EXTENSIONS,
@@ -93,11 +99,12 @@ class Config:
 
         args = parser.parse_args()
 
-        self.pride_repo = args.pride_repo
+        self.pride_project = args.pride_project
         self.max_num_files = args.max_num_files
         self.count_failed_files = args.count_failed_files
         self.download_dir = args.download_dir
         self.log_file = args.log_file
+        self.log_to_stdout = args.log_to_stdout
         self.valid_file_extensions = {ext.lower() for ext in args.valid_file_extensions if len(ext) > 0}
         self.skip_existing = (not args.no_skip_existing)
         self.extract = (not args.no_extract)
@@ -106,7 +113,7 @@ class Config:
         self.commands = deduplicate(args.command)
 
     def validate_arguments(self):
-        assert len(self.pride_repo) > 0, "PRIDE_REPO must not be empty"
+        assert len(self.pride_project) > 0, "PRIDE_REPO must not be empty"
         assert len(self.download_dir) > 0, "download-dir must not be empty"
         assert len(self.log_file) > 0, "log-file must not be empty"
 
@@ -120,25 +127,31 @@ class Config:
 
 def set_logger(config: Config):
     global logger
+    if config.log_to_stdout:
+        log_to_std = sys.stdout
+    else:
+        log_to_std = sys.stderr
+
     logger = log.create_logger(name="PRIDE_Downloader",
                                log_dir=config.download_dir,
                                filename=config.log_file,
-                               verbose=config.verbose)
+                               verbose=config.verbose,
+                               log_to_std=log_to_std)
 
 
-def get_repo_link(repo_name: str):
-    return PRIDE_API_LIST_REPO_FILES % repo_name
+def get_repo_link_list_project_files(repo_name: str):
+    return PRIDE_API_LIST_PROJECT_FILES % repo_name
 
 
-def get_repo_files(repo_name: str):
+def get_project_files(project_name: str):
     """Get the project as a json and return it as a dataframe"""
-    repo_link = get_repo_link(repo_name)
-    logger.info("Requesting list of repository files from " + repo_link)
-    response = requests.get(repo_link)
-    logger.debug("Received response from %s with length of %d bytes" % (repo_link, len(response.text)))
+    project_files_link = get_repo_link_list_project_files(project_name)
+    logger.info("Requesting list of project files from " + project_files_link)
+    response = requests.get(project_files_link)
+    logger.debug("Received response from %s with length of %d bytes" % (project_files_link, len(response.text)))
     response = json.loads(response.text)
     df = pd.DataFrame(pd.json_normalize(response['list']))
-    logger.info("Received list of %d repository files" % len(df))
+    logger.info("Received list of %d project files" % len(df))
     return df
 
 
@@ -155,7 +168,7 @@ def create_file_extension_filter(required_file_extensions: set, optional_file_ex
     return filter_file_extension
 
 
-def filter_files(repo_df: pd.DataFrame, file_extensions: set = None):
+def filter_files(files_df: pd.DataFrame, file_extensions: set = None):
     if file_extensions is None:
         file_extensions = set(DEFAULT_VALID_FILE_EXTENSIONS)
     else:
@@ -163,7 +176,7 @@ def filter_files(repo_df: pd.DataFrame, file_extensions: set = None):
 
     if len(file_extensions) == 0:
         logger.debug("Skipping file extension filtering")
-        filtered_files = repo_df
+        filtered_files = files_df
     else:
         required_file_extensions = file_extensions
         optional_file_extensions = set(EXTRACTABLE_FILE_EXTENSIONS.keys())
@@ -174,7 +187,7 @@ def filter_files(repo_df: pd.DataFrame, file_extensions: set = None):
                         "\", \"".join(optional_file_extensions)))
 
         file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
-        filtered_files = repo_df[repo_df.fileName.apply(file_extension_filter)]
+        filtered_files = files_df[files_df.fileName.apply(file_extension_filter)]
 
         logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
 
@@ -260,15 +273,15 @@ def download_files(links: list, max_num_files: int, skip_existing=True, extract=
     logger.info("Finished downloading %d files" % files_downloaded_count)
 
 
-def download(pride_repo: str,
+def download(pride_project: str,
              valid_file_extensions: set,
              max_num_files: int,
              download_dir: str,
              skip_existing: bool,
              extract: bool,
              count_failed_files: bool):
-    repo_files = get_repo_files(repo_name=pride_repo)
-    filtered_files = filter_files(repo_df=repo_files,
+    project_files = get_project_files(project_name=pride_project)
+    filtered_files = filter_files(files_df=project_files,
                                   file_extensions=valid_file_extensions)
     max_num_files = min(max_num_files, len(filtered_files))
     initial_directory = os.getcwd()
@@ -282,7 +295,7 @@ def download(pride_repo: str,
 
 
 def run_download(config: Config):
-    return download(pride_repo=config.pride_repo,
+    return download(pride_project=config.pride_project,
                     valid_file_extensions=config.valid_file_extensions,
                     max_num_files=config.max_num_files,
                     download_dir=config.download_dir,
@@ -291,8 +304,37 @@ def run_download(config: Config):
                     count_failed_files=config.count_failed_files)
 
 
+def get_project_link_get_project_summary(project_name: str):
+    return PRIDE_API_GET_PROJECT_SUMMARY % project_name
+
+
+def get_project_summary(project_name: str):
+    """Get the project as a json and return it as a dataframe"""
+    project_summary_link = get_project_link_get_project_summary(project_name)
+    logger.info("Requesting project summary from " + project_summary_link)
+    response = requests.get(project_summary_link)
+    logger.debug("Received response from %s with length of %d bytes" % (project_summary_link, len(response.text)))
+    response = json.loads(response.text)
+    logger.info("Received project summary for project \"%s\"" % project_name)
+    return response
+
+
+def pretty_print_json(dic: dict):
+    return json.dumps(dic, indent=4)
+
+
+def info(pride_project: str):
+    summary_dict = get_project_summary(project_name=pride_project)
+    print(pretty_print_json(summary_dict))
+
+
+def run_info(config: Config):
+    return info(pride_project=config.pride_project)
+
+
 COMMAND_DISPATCHER = {
-    "download": run_download
+    "download": run_download,
+    "info": run_info
 }
 
 

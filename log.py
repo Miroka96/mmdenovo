@@ -33,7 +33,12 @@ class DummyLogger:
         print(msg)
 
 
-def create_logger(name: str, level=None, verbose: bool = None, filename: str = None, log_dir: str = "."):
+def create_logger(name: str,
+                  level=None,
+                  verbose: bool = None,
+                  filename: str = None,
+                  log_dir: str = ".",
+                  log_to_std=sys.stderr):
     if verbose is not None:
         assert level is None, "level and verbose are exclusive parameters"
         if verbose:
@@ -62,14 +67,16 @@ def create_logger(name: str, level=None, verbose: bool = None, filename: str = N
         fh.setLevel(level)
         logger.addHandler(fh)
 
-        # log to stdout
-        oh = logging.StreamHandler(sys.stdout)
-        oh.flush = sys.stdout.flush
-        oh.setFormatter(formatter)
-        oh.setLevel(level)
-        logger.addHandler(oh)
+        if log_to_std is not None:
+            oh = logging.StreamHandler(log_to_std)
+            oh.flush = sys.stdout.flush
+            oh.setFormatter(formatter)
+            oh.setLevel(level)
+            logger.addHandler(oh)
 
-        logger.info("Logging to Stdout and to file " + filename)
+            logger.info("Logging to %s and to file %s" % (log_to_std.name, filename))
+        else:
+            logger.info("Logging to file %s" % filename)
 
         return Logger(logger, name, filename, log_dir)
     except Exception as e:
