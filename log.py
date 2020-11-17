@@ -20,6 +20,9 @@ class Logger:
     def debug(self, msg: str):
         self.logger.debug(msg)
 
+    def error(self, msg: str):
+        self.info("ERROR: " + msg)
+
 
 class DummyLogger:
     def __init__(self, send_welcome=True):
@@ -30,6 +33,9 @@ class DummyLogger:
         print(msg)
 
     def debug(self, msg):
+        print(msg)
+
+    def error(self, msg):
         print(msg)
 
 
