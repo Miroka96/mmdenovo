@@ -36,6 +36,7 @@ class Config:
     def __init__(self):
         self.pride_repo = None
         self.max_num_files = None
+        self.count_failed_files = None
         self.download_dir = None
         self.log_file = None
         self.valid_file_extensions = None
@@ -47,13 +48,12 @@ class Config:
     def parse_arguments(self):
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-        parser.add_argument("pride-repo",
+        parser.add_argument("pride_repo",
                             help="the name of the PRIDE repository, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'")
         parser.add_argument("command",
                             nargs='*',
-                            default="download",
-                            choices=["download"],
+                            choices=list(COMMAND_DISPATCHER.keys()),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.")
@@ -62,6 +62,10 @@ class Config:
                             default=2,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
+        parser.add_argument("--count-failed-files",
+                            action="store_false",
+                            help="Count failed files and do not just skip them. " +
+                                 "This is relevant for the max-num-files parameter.")
         parser.add_argument("-d", "--download-dir",
                             default="./pride",
                             help="the name of the directory, in which the downloaded files and the log file will be "
@@ -91,6 +95,7 @@ class Config:
 
         self.pride_repo = args.pride_repo
         self.max_num_files = args.max_num_files
+        self.count_failed_files = args.count_failed_files
         self.download_dir = args.download_dir
         self.log_file = args.log_file
         self.valid_file_extensions = {ext.lower() for ext in args.valid_file_extensions if len(ext) > 0}
@@ -209,7 +214,7 @@ def strip_archive_extension(filename: str):
         return filename, False
 
 
-def download_files(links: list, max_num_files: int, skip_existing=True, extract=True):
+def download_files(links: list, max_num_files: int, skip_existing=True, extract=True, count_failed_files=False):
     logger.info("Downloading %d files" % max_num_files)
     files_downloaded_count = 0
     files_processed = 1
@@ -239,11 +244,15 @@ def download_files(links: list, max_num_files: int, skip_existing=True, extract=
             try:
                 downloaded_file = wget.download(link)
             except Exception as e:
-                logger.info('Failed to download "%s" because of "%s"' % (link, e))
+                file_of_n = ""
+                if count_failed_files:
+                    files_processed += 1
+                    file_of_n = "file %d/%d: " % (files_processed, max_num_files)
+                logger.info('Failed to download %s"%s" because of "%s"' % (file_of_n, link, e))
                 continue
             else:
                 files_downloaded_count += 1
-                logger.info("Downloaded file %d/%d: %s" % (files_processed, max_num_files, link))
+                logger.info('Downloaded file %d/%d: "%s"' % (files_processed, max_num_files, link))
 
         if extract:
             extract_if_possible(downloaded_file, skip_existing=skip_existing)
@@ -251,7 +260,51 @@ def download_files(links: list, max_num_files: int, skip_existing=True, extract=
     logger.info("Finished downloading %d files" % files_downloaded_count)
 
 
-def run_downloader(config: Config = None):
+def download(pride_repo: str,
+             valid_file_extensions: set,
+             max_num_files: int,
+             download_dir: str,
+             skip_existing: bool,
+             extract: bool,
+             count_failed_files: bool):
+    repo_files = get_repo_files(repo_name=pride_repo)
+    filtered_files = filter_files(repo_df=repo_files,
+                                  file_extensions=valid_file_extensions)
+    max_num_files = min(max_num_files, len(filtered_files))
+    initial_directory = os.getcwd()
+    os.chdir(download_dir)
+    download_files(links=filtered_files.downloadLink,
+                   max_num_files=max_num_files,
+                   skip_existing=skip_existing,
+                   extract=extract,
+                   count_failed_files=count_failed_files)
+    os.chdir(initial_directory)
+
+
+def run_download(config: Config):
+    return download(pride_repo=config.pride_repo,
+                    valid_file_extensions=config.valid_file_extensions,
+                    max_num_files=config.max_num_files,
+                    download_dir=config.download_dir,
+                    skip_existing=config.skip_existing,
+                    extract=config.extract,
+                    count_failed_files=config.count_failed_files)
+
+
+COMMAND_DISPATCHER = {
+    "download": run_download
+}
+
+
+def dispatch_commands(config: Config):
+    for command in config.commands:
+        method = COMMAND_DISPATCHER.get(command)
+        if method is None:
+            raise NotImplementedError("%s is no known command")
+        method(config)
+
+
+def main(config: Config = None):
     if config is None:
         config = Config()
         config.parse_arguments()
@@ -259,18 +312,8 @@ def run_downloader(config: Config = None):
     set_logger(config)
     config.check()
 
-    repo_files = get_repo_files(repo_name=config.pride_repo)
-    filtered_files = filter_files(repo_df=repo_files,
-                                  file_extensions=config.valid_file_extensions)
-    config.max_num_files = min(config.max_num_files, len(filtered_files))
-    initial_directory = os.getcwd()
-    os.chdir(config.download_dir)
-    download_files(links=filtered_files.downloadLink,
-                   max_num_files=config.max_num_files,
-                   skip_existing=config.skip_existing,
-                   extract=config.extract)
-    os.chdir(initial_directory)
+    dispatch_commands(config)
 
 
 if __name__ == '__main__':
-    run_downloader()
+    main()
