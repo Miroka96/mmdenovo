@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from utils import ensure_dir_exists
+from utils.util import ensure_dir_exists
 
 LOG_FORMAT = '%(asctime)s - %(name)s: %(message)s'
 DEFAULT_LOG_SUFFIX = '.log'

@@ -25,13 +25,13 @@ jupyter-test: jupyter-pull
 
 jupyter-deploy-only: jupyter-pull
 	docker run --restart always --detach --name=$(JUPYTER_CONTAINER_NAME) $(JUPYTER_PARAMETERS)
-	sleep 1
+	sleep 2
 
 jupyter-deploy-prepare:
-	docker exec $(JUPYTER_CONTAINER_NAME) pip install pyteomics pandas pyarrow lxml
+	docker exec $(JUPYTER_CONTAINER_NAME) pip install pyteomics pandas pyarrow lxml wget
 
 jupyter-token:
-	docker logs $(JUPYTER_CONTAINER_NAME) 2>&1 | grep \?token\= | tail -n 1 | grep -o 'http.*$$'
+	-docker logs $(JUPYTER_CONTAINER_NAME) 2>&1 | grep \?token\= | tail -n 1 | grep -o 'http.*$$'
 
 jupyter-deploy: | jupyter-deploy-only jupyter-token jupyter-deploy-prepare
 
