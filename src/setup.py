@@ -1,7 +1,6 @@
 import os
 from setuptools import setup, find_packages
 
-# Open 'README.md' file
 with open(os.path.join('..', 'README.md')) as f:
     read_me = f.read()
 

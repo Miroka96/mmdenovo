@@ -1,20 +1,16 @@
 import pandas as pd
 import wget
 import os
-from mmpro.utils import log
-
-EXTRACTABLE_FILE_EXTENSIONS = {
-    "gz": {
-        "command": 'gunzip "%s"'
-    },
-    "zip": {
-        "command": 'unzip "%s"'
-    }}
+from mmpro.utils import log, formats
 
 DUMMY_LOGGER = log.DummyLogger(send_welcome=False)
 
 
 def create_file_extension_filter(required_file_extensions: set, optional_file_extensions: set = None):
+    if optional_file_extensions is not None:
+        assert len(required_file_extensions.intersection(optional_file_extensions)) == 0, "Extension sets must be " \
+                                                                                          "distinct."
+
     def filter_file_extension(filename: str):
         filename = filename.lower()
         extensions = reversed(filename.split("."))
@@ -35,7 +31,7 @@ def filter_files(files_df: pd.DataFrame, file_extensions: set = None, logger: lo
         filtered_files = files_df
     else:
         required_file_extensions = file_extensions
-        optional_file_extensions = set(EXTRACTABLE_FILE_EXTENSIONS.keys())
+        optional_file_extensions = formats.get_extractable_file_extensions()
 
         logger.info("Filtering repository files based on the following required file extensions [\"%s\"] and the "
                     "following optional file extensions [%s]" % (
@@ -47,47 +43,16 @@ def filter_files(files_df: pd.DataFrame, file_extensions: set = None, logger: lo
 
         logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
 
-    # sort, such that files with different extensions come in pairs according to the same sample.
+    # sort, such that files with same prefixes but different extensions come in pairs
     sorted_files = filtered_files.sort_values(by='fileName')
     return sorted_files
 
 
-def extract_if_possible(filename: str, skip_existing=True, logger: log.Logger = DUMMY_LOGGER):
-    lower_filename = filename.lower()
-
-    file_ext = lower_filename.split('.')[-1]
-    if file_ext in EXTRACTABLE_FILE_EXTENSIONS:
-        command = EXTRACTABLE_FILE_EXTENSIONS[file_ext]["command"] % filename
-        new_filename = filename[:-(len(file_ext) + 1)]
-    else:
-        return filename
-
-    if skip_existing and os.path.isfile(new_filename):
-        logger.info('Skipping extraction, because "%s" already exists' % new_filename)
-    else:
-        logger.info("Extracting downloaded file using '%s'" % command)
-        return_code = os.system(command)
-        if return_code == 0:
-            logger.info("Extracted downloaded file")
-        else:
-            logger.info('Failed extracting downloaded file "%s" (return code = %d)' % (filename, return_code))
-
-    return new_filename
-
-
-def strip_archive_extension(filename: str):
-    parts = filename.split(".")
-    if parts[-1].lower() in EXTRACTABLE_FILE_EXTENSIONS:
-        return ".".join(parts[:-1]), True
-    else:
-        return filename, False
-
-
-def download_files(links: list, 
-                   max_num_files: int, 
-                   skip_existing=True, 
-                   extract=True, 
-                   count_failed_files=False, 
+def download_files(links: list,
+                   max_num_files: int,
+                   skip_existing=True,
+                   extract=True,
+                   count_failed_files=False,
                    logger: log.Logger = DUMMY_LOGGER):
     logger.info("Downloading %d files" % max_num_files)
     files_downloaded_count = 0
@@ -97,40 +62,40 @@ def download_files(links: list,
             break
         logger.info("Downloading file %d/%d: %s" % (files_processed, max_num_files, link))
         filename = link.split("/")[-1]
-        downloaded = False
+        downloaded_filename = None
+
+        file_extracted = False
+
         if skip_existing:
+            log_message = 'Skipping download%s, because%s file "%s" already exists'
             if os.path.isfile(filename):
-                downloaded = True
+                logger.info(log_message % ('', '', filename))
+                downloaded_filename = filename
 
-            if extract:
+            extracted_filename, extension = formats.separate_archive_extension(filename)
+            file_is_extractable = len(extension) > 0
+
+            if extract and file_is_extractable:
                 # gunzip deletes the archive file after extraction, other programmes keep it
-                extracted_filename, compressed = strip_archive_extension(filename)
-                if compressed and os.path.isfile(extracted_filename):
-                    logger.info('Skipping download and extraction, because extracted file "%s" already exists' %
-                                extracted_filename)
-                    files_processed += 1
-                    continue
+                if os.path.isfile(extracted_filename):
+                    logger.info(log_message % (' and extraction', ' extracted', extracted_filename))
+                    file_extracted = True
 
-        if downloaded:
-            logger.info('Skipping download, because "%s" already exists' % filename)
-            downloaded_file = filename
-        else:
+        # download the file if it wasn't downloaded yet and there was no extracted file available
+        if downloaded_filename is None and not file_extracted:
             try:
-                downloaded_file = wget.download(link)
-            except Exception as e:
-                file_of_n = ""
-                if count_failed_files:
-                    files_processed += 1
-                    file_of_n = "file %d/%d: " % (files_processed, max_num_files)
-                logger.info('Failed to download %s"%s" because of "%s"' % (file_of_n, link, e))
-                continue
-            else:
+                downloaded_filename = wget.download(link)
                 files_downloaded_count += 1
                 logger.info('Downloaded file %d/%d: "%s"' % (files_processed, max_num_files, link))
+            except Exception as e:
+                logger.info('Failed to download file %d/%d ("%s") because of "%s"' %
+                            (files_processed, max_num_files, link, e))
 
-        if extract:
-            extract_if_possible(downloaded_file, skip_existing=skip_existing)
-        files_processed += 1
+        if downloaded_filename is not None and extract and not file_extracted:
+            formats.extract_file_if_possible(downloaded_filename, skip_existing=skip_existing, logger=logger)
+
+        if downloaded_filename is not None or count_failed_files:
+            files_processed += 1
     logger.info("Finished downloading %d files" % files_downloaded_count)
 
 
