@@ -1,13 +1,14 @@
 import requests
 import json
 import pandas as pd
-from utils import log, download
-from utils.utils import pretty_print_json
+from mmpro.utils import log, download as dl
+from mmpro.utils.utils import pretty_print_json
 
 PRIDE_API_LIST_PROJECT_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
 PRIDE_API_GET_PROJECT_SUMMARY = "https://www.ebi.ac.uk:443/pride/ws/archive/project/%s"
 
 DUMMY_LOGGER = log.DummyLogger(send_welcome=False)
+
 
 def get_repo_link_list_project_files(repo_name: str) -> str:
     return PRIDE_API_LIST_PROJECT_FILES % repo_name
@@ -47,4 +48,4 @@ def get_project_files(project_name: str, logger: log.Logger = DUMMY_LOGGER) -> p
 
 def download(pride_project: str, **kwargs):
     project_files = get_project_files(project_name=pride_project)
-    download.download(project_files, **kwargs)
+    dl.download(project_files, **kwargs)

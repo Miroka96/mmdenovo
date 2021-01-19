@@ -1,7 +1,8 @@
 from pyteomics import mgf, mzid
 import pandas as pd
 import json
-from utils.utils import flatten_dict
+from mmpro.utils.utils import flatten_dict
+
 
 def iter_entries(iterator, debug: bool = True) -> list:
 	debug_print=print
@@ -21,10 +22,12 @@ def iter_entries(iterator, debug: bool = True) -> list:
 			debug_print(entries[0])
 	return entries
 
+
 def read_mgf(filename: str, debug: bool = True) -> pd.DataFrame:
 	entries = iter_entries(mgf.read(filename), debug=debug)
 	extracted_entries = [flatten_dict(entry) for entry in entries]
 	return pd.DataFrame(data=extracted_entries)
+
 
 def extract_features_from_mzid_entry(entry: dict) -> dict:
 	result = flatten_dict(entry)
@@ -41,13 +44,14 @@ def extract_features_from_mzid_entry(entry: dict) -> dict:
 	
 	return result
 
+
 def read_mzid(filename: str, debug=True) -> pd.DataFrame:
 	entries = iter_entries(mzid.read(filename), debug=debug)
 	extracted_entries = [extract_features_from_mzid_entry(entry) for entry in entries]
 	return pd.DataFrame(data=extracted_entries)
 
+
 def read(filename: str, debug=True) -> pd.DataFrame:
-	df = None
 	if filename.endswith('.mgf'):
 		df = read_mgf(filename, debug=debug)
 	elif filename.endswith('.mzid'):

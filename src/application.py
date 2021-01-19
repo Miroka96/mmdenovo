@@ -1,13 +1,7 @@
 #!/usr/bin/python3
 import sys
-
-import requests
-import json
-import pandas as pd
-import wget
-import os
 import argparse
-from utils import log, pride, utils
+from src.mmpro.utils import log, pride, utils
 
 
 DEFAULT_VALID_FILE_EXTENSIONS = ["mzid", "mzml"]
@@ -131,15 +125,14 @@ def set_logger(config: Config):
                                log_to_std=log_to_std)
 
 
-
 def run_download(config: Config):
     pride.download(pride_project=config.pride_project,
-                    valid_file_extensions=config.valid_file_extensions,
-                    max_num_files=config.max_num_files,
-                    download_dir=config.storage_dir,
-                    skip_existing=config.skip_existing,
-                    extract=config.extract,
-                    count_failed_files=config.count_failed_files)
+                   valid_file_extensions=config.valid_file_extensions,
+                   max_num_files=config.max_num_files,
+                   download_dir=config.storage_dir,
+                   skip_existing=config.skip_existing,
+                   extract=config.extract,
+                   count_failed_files=config.count_failed_files)
 
 
 def validate_download(config: Config):

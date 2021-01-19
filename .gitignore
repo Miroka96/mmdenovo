@@ -5,3 +5,5 @@ dumps/
 .ipynb_checkpoints/
 __pycache__/
 .vscode/
+.idea/
+*.egg-info/
