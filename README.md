@@ -1,1 +1,1 @@
-# de-novo-sequencing
+# pride-downloader
