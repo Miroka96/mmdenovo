@@ -25,15 +25,34 @@ def pretty_print_json(dic: dict) -> str:
     return json.dumps(dic, indent=4)
 
 
-def flatten_dict(d: dict, result: dict = None, overwrite: bool = False) -> dict:
-    if result is None:
-        result = dict()
-    if type(d) != dict:
-        return result
-    for key, value in d.items():
-        if type(value) == dict:
-            flatten_dict(value, result, overwrite)
-            continue
-        if not overwrite and key not in result:
-            result[key] = value
-    return result
+def extract_dict_or_inner_element(elem):
+    try:
+        # skip one-element lists or sets,...
+        while type(elem) != dict and len(elem) == 1:
+            elem = next(iter(elem))
+    except:
+        pass
+    return elem
+
+
+def flatten_dict(input_dict: dict, result_dict: dict = None, overwrite: bool = False) -> dict:
+    if result_dict is None:
+        result_dict = dict()
+
+    dict_queue = [input_dict]
+
+    while len(dict_queue) > 0:
+        item = dict_queue[0]
+        dict_queue = dict_queue[1:]
+
+        for key, value in item.items():
+            value = extract_dict_or_inner_element(value)
+
+            if type(value) == dict:
+                dict_queue.append(value)
+                continue
+
+            if not overwrite and key not in result_dict:
+                result_dict[key] = value
+
+    return result_dict

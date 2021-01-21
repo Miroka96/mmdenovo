@@ -28,7 +28,7 @@ jupyter-deploy-only: jupyter-pull
 	sleep 2
 
 jupyter-deploy-prepare:
-	docker exec $(JUPYTER_CONTAINER_NAME) pip install pyteomics pandas pyarrow lxml wget
+	docker exec $(JUPYTER_CONTAINER_NAME) pip install pyteomics pandas pyarrow lxml wget pytest
 
 jupyter-token:
 	-docker logs $(JUPYTER_CONTAINER_NAME) 2>&1 | grep \?token\= | tail -n 1 | grep -o 'http.*$$'
