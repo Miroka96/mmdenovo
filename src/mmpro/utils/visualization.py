@@ -16,6 +16,7 @@ def print_df(df: pd.DataFrame,
         df = df[:max_num_files]
         logger.info("Showing only the top %d entries because of the max_num_files parameter" % max_num_files)
     if shown_columns is not None and shown_columns != []:
-        df = df[df.columns.intersection(shown_columns)]
+        columns = [col for col in shown_columns if col in df.columns]
+        df = df[columns]
         logger.info("Limiting the shown columns according to the shown_columns parameter")
     print(df)

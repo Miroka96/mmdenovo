@@ -99,7 +99,7 @@ class Config:
         self.skip_existing = (not args.no_skip_existing)
         self.extract = (not args.no_extract)
         self.verbose = args.verbose
-        self.shown_columns = {col for col in args.shown_columns.split(",") if len(col) > 0}
+        self.shown_columns = [col for col in args.shown_columns.split(",") if len(col) > 0]
 
         self.commands = utils.deduplicate_list(args.command)
 
@@ -130,7 +130,7 @@ def set_logger(config: Config):
 
 
 def run_download(config: Config):
-    downloaded_files = pride.download(pride_project=config.pride_project,
+    downloaded_files = pride.download(project_name=config.pride_project,
                                       logger=logger,
                                       valid_file_extensions=config.valid_file_extensions,
                                       max_num_files=config.max_num_files,
@@ -163,8 +163,9 @@ def validate_info(config: Config):
 
 
 def run_ls(config: Config):
-    project_files = pride.get_project_files(project_name=config.pride_project,
-                                            logger=logger)
+    project_files = pride.list_files(project_name=config.pride_project,
+                                     file_extensions=config.valid_file_extensions,
+                                     logger=logger)
     visualization.print_df(df=project_files,
                            max_num_files=config.max_num_files,
                            shown_columns=config.shown_columns,

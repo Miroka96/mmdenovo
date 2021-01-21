@@ -2,7 +2,7 @@ from typing import Optional, List, Callable
 import pandas as pd
 import wget
 import os
-from mmpro.utils import log, formats
+from mmpro.utils import log, formats, pride
 
 
 def create_file_extension_filter(required_file_extensions: set,
@@ -21,36 +21,6 @@ def create_file_extension_filter(required_file_extensions: set,
         return extension in required_file_extensions
 
     return filter_file_extension
-
-
-def filter_files(files_df: pd.DataFrame, file_extensions: Optional[set] = None, max_num_files: Optional[int] = None,
-                 logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    if len(file_extensions) == 0:
-        logger.debug("Skipping file extension filtering")
-        filtered_files = files_df
-    else:
-        required_file_extensions = file_extensions
-        optional_file_extensions = formats.get_extractable_file_extensions()
-
-        logger.info("Filtering repository files based on the following required file extensions [\"%s\"] and the "
-                    "following optional file extensions [%s]" % (
-                        "\", \"".join(required_file_extensions),
-                        "\", \"".join(optional_file_extensions)))
-
-        file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
-        filtered_files = files_df[files_df.fileName.apply(file_extension_filter)]
-
-        logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
-
-    # sort, such that files with same prefixes but different extensions come in pairs
-    sorted_files = filtered_files.sort_values(by='fileName')
-
-    if max_num_files is None or max_num_files == 0:
-        limited_files = sorted_files
-    else:
-        limited_files = sorted_files[:max_num_files]
-
-    return limited_files
 
 
 def download_file(link: str, skip_existing: bool = True) -> (str, str):
@@ -140,10 +110,10 @@ def download(project_files: pd.DataFrame,
              extract: bool,
              count_failed_files: bool,
              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    filtered_files = filter_files(files_df=project_files,
-                                  file_extensions=valid_file_extensions,
-                                  max_num_files=max_num_files,
-                                  logger=logger)
+    filtered_files = pride.filter_files(files_df=project_files,
+                                        file_extensions=valid_file_extensions,
+                                        max_num_files=max_num_files,
+                                        logger=logger)
     initial_directory = os.getcwd()
     os.chdir(download_dir)
 
