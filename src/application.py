@@ -1,15 +1,12 @@
 #!/usr/bin/python3
 import sys
 import argparse
-from src.mmpro.utils import log, pride, utils
+from mmpro.utils import log, pride, utils, visualization
 
-
-DEFAULT_VALID_FILE_EXTENSIONS = ["mzid", "mzml"]
 logger = log.DummyLogger(send_welcome=False)
 
 
 class Config:
-
     command_str = "command"
     pride_project_str = "--pride-project"
     max_num_files_str = "--max-num-files"
@@ -21,6 +18,7 @@ class Config:
     no_skip_existing_str = "--no-skip-existing"
     no_extract_str = "--no-extract"
     verbose_str = "--verbose"
+    shown_columns_str = "--shown-columns"
 
     def __init__(self):
         self.pride_project = None
@@ -33,13 +31,14 @@ class Config:
         self.skip_existing = None
         self.extract = None
         self.verbose = None
+        self.shown_columns = None
         self.commands = None
 
     def parse_arguments(self):
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         parser.add_argument(Config.command_str,
-                            nargs='*',
+                            nargs='+',
                             choices=list(COMMAND_DISPATCHER.keys()),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
@@ -49,7 +48,7 @@ class Config:
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'." +
                                  "For some commands, this parameter is required.")
         parser.add_argument("-n", Config.max_num_files_str,
-                            default=2,
+                            default=0,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
         parser.add_argument(Config.count_failed_files_str,
@@ -67,10 +66,9 @@ class Config:
                             action="store_true",
                             help="Log to stdout instead of stderr.")
         parser.add_argument("-t", Config.valid_file_extensions_str,
-                            nargs='+',
-                            default=DEFAULT_VALID_FILE_EXTENSIONS,
-                            help="allowed file extensions to filter the files to be downloaded. " +
-                                 "An empty lists, created by two double quotes (\"\"), deactivates filtering. " +
+                            default="",
+                            help="a list of comma-separated allowed file extensions to filter files for. " +
+                                 "An empty list deactivates filtering. "
                                  "Capitalization does not matter.")
         parser.add_argument("-e", Config.no_skip_existing_str,
                             action="store_true",
@@ -83,6 +81,11 @@ class Config:
         parser.add_argument("-v", Config.verbose_str,
                             action="store_true",
                             help="Increase output verbosity to debug level.")
+        parser.add_argument(Config.shown_columns_str,
+                            default="",
+                            help="a list of comma-separated column names. Some commands show their results as tables, "
+                                 "so their output columns will be limited to those in this list. An empty list "
+                                 "deactivates filtering. Capitalization matters.")
 
         args = parser.parse_args()
 
@@ -92,10 +95,11 @@ class Config:
         self.storage_dir = args.storage_dir
         self.log_file = args.log_file
         self.log_to_stdout = args.log_to_stdout
-        self.valid_file_extensions = {ext.lower() for ext in args.valid_file_extensions if len(ext) > 0}
+        self.valid_file_extensions = {ext.lower() for ext in args.valid_file_extensions.split(",") if len(ext) > 0}
         self.skip_existing = (not args.no_skip_existing)
         self.extract = (not args.no_extract)
         self.verbose = args.verbose
+        self.shown_columns = {col for col in args.shown_columns.split(",") if len(col) > 0}
 
         self.commands = utils.deduplicate_list(args.command)
 
@@ -126,13 +130,18 @@ def set_logger(config: Config):
 
 
 def run_download(config: Config):
-    pride.download(pride_project=config.pride_project,
-                   valid_file_extensions=config.valid_file_extensions,
-                   max_num_files=config.max_num_files,
-                   download_dir=config.storage_dir,
-                   skip_existing=config.skip_existing,
-                   extract=config.extract,
-                   count_failed_files=config.count_failed_files)
+    downloaded_files = pride.download(pride_project=config.pride_project,
+                                      logger=logger,
+                                      valid_file_extensions=config.valid_file_extensions,
+                                      max_num_files=config.max_num_files,
+                                      download_dir=config.storage_dir,
+                                      skip_existing=config.skip_existing,
+                                      extract=config.extract,
+                                      count_failed_files=config.count_failed_files)
+    visualization.print_df(df=downloaded_files,
+                           max_num_files=None,
+                           shown_columns=config.shown_columns,
+                           logger=logger)
 
 
 def validate_download(config: Config):
@@ -145,11 +154,24 @@ def validate_download(config: Config):
 
 
 def run_info(config: Config):
-    project_info = pride.info(pride_project=config.pride_project)
+    project_info = pride.info(pride_project=config.pride_project, logger=logger)
     print(project_info)
 
 
 def validate_info(config: Config):
+    config.require_pride_project()
+
+
+def run_ls(config: Config):
+    project_files = pride.get_project_files(project_name=config.pride_project,
+                                            logger=logger)
+    visualization.print_df(df=project_files,
+                           max_num_files=config.max_num_files,
+                           shown_columns=config.shown_columns,
+                           logger=logger)
+
+
+def validate_ls(config: Config):
     config.require_pride_project()
 
 
@@ -160,6 +182,10 @@ COMMAND_DISPATCHER = {
     },
     "info": {
         "handler": run_info,
+        "validator": validate_info,
+    },
+    "ls": {
+        "handler": run_ls,
         "validator": validate_info,
     }
 }

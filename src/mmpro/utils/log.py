@@ -8,35 +8,33 @@ DEFAULT_LOG_SUFFIX = '.log'
 
 
 class Logger:
-    def __init__(self, logger, name, filename, log_dir):
+    def __init__(self, logger):
         self.logger = logger
-        self.name = name
-        self.log_dir = log_dir
-        self.filename = filename
 
-    def info(self, msg: str):
+    def info(self, msg: str = ""):
         self.logger.info(msg)
 
-    def debug(self, msg: str):
+    def debug(self, msg: str = ""):
         self.logger.debug(msg)
 
-    def error(self, msg: str):
+    def error(self, msg: str = ""):
         self.info("ERROR: " + msg)
 
 
-class DummyLogger:
+class DummyLogger(Logger):
     def __init__(self, send_welcome=True):
+        super().__init__(None)
         if send_welcome:
             self.info("Printing to Stdout")
 
-    def info(self, msg):
-        print(msg)
+    def info(self, msg: str = ""):
+        print("INFO: " + msg)
 
-    def debug(self, msg):
-        print(msg)
+    def debug(self, msg: str = ""):
+        print("DEBUG: " + msg)
 
-    def error(self, msg):
-        print(msg)
+    def error(self, msg: str = ""):
+        print("ERROR: " + msg)
 
 
 def create_logger(name: str,
@@ -84,10 +82,13 @@ def create_logger(name: str,
         else:
             logger.info("Logging to file %s" % filename)
 
-        return Logger(logger, name, filename, log_dir)
+        return Logger(logger)
     except Exception as e:
         print("Error: Failed to create logger", str(name))
         print(e)
         print("Returned print-only dummy logger")
         logger = DummyLogger()
         return logger
+
+
+DUMMY_LOGGER = DummyLogger(send_welcome=False)
