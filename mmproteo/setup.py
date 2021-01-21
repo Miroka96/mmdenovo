@@ -13,12 +13,25 @@ setup(
     url='https://gitlab.com/dacs-hpi/pride-downloader',
     author='Mirko Krause',
     author_email='krause@codebase.one',
+    license='GPLv3+',
     packages=find_packages(),
+    entry_points={
+        "console_scripts": ['mmproteo = mmproteo.mmproteo:main']
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
+        "Environment :: Console",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
-
+    install_requires=[
+        "requests~=2.22.0",
+        "pandas~=1.1.3",
+        "pyteomics~=4.4.1",
+        "wget~=3.2",
+        "pyarrow~=2.0.0",
+        "lxml~=4.5.0",
+        "pytest~=6.2.1",
+    ]
 )
