@@ -1,3 +1,5 @@
+import json
+
 from mmpro.utils import log
 from typing import Optional, List
 import pandas as pd
@@ -20,3 +22,7 @@ def print_df(df: pd.DataFrame,
         df = df[columns]
         logger.info("Limiting the shown columns according to the shown_columns parameter")
     print(df)
+
+
+def pretty_print_json(dic: dict) -> str:
+    return json.dumps(dic, indent=4)

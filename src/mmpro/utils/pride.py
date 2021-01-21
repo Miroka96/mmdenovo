@@ -5,7 +5,7 @@ import json
 import pandas as pd
 from mmpro.utils import log, download as dl, formats
 from mmpro.utils.download import create_file_extension_filter
-from mmpro.utils.utils import pretty_print_json
+from mmpro.utils.visualization import pretty_print_json
 
 PRIDE_API_LIST_PROJECT_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
 PRIDE_API_GET_PROJECT_SUMMARY = "https://www.ebi.ac.uk:443/pride/ws/archive/project/%s"
@@ -58,7 +58,7 @@ def filter_files(files_df: pd.DataFrame,
                  max_num_files: Optional[int] = None,
                  sort: bool = True,
                  logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    if len(file_extensions) == 0:
+    if file_extensions is None or len(file_extensions) == 0:
         logger.debug("Skipping file extension filtering")
         filtered_files = files_df
     else:
@@ -92,6 +92,8 @@ def filter_files(files_df: pd.DataFrame,
     return limited_files
 
 
-def list_files(project_name: str, file_extensions: Optional[set] = None, logger: log.Logger = log.DUMMY_LOGGER):
+def list_files(project_name: str,
+               file_extensions: Optional[set] = None,
+               logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
     project_files = get_project_files(project_name=project_name, logger=logger)
     return filter_files(files_df=project_files, file_extensions=file_extensions, sort=False, logger=logger)

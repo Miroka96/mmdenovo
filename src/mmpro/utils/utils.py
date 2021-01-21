@@ -1,5 +1,4 @@
 import os
-import json
 
 
 def ensure_dir_exists(directory):
@@ -19,10 +18,6 @@ def deduplicate_list(lst: list) -> list:
             already_inserted.add(e)
         deduplicated_list.append(e)
     return deduplicated_list
-
-
-def pretty_print_json(dic: dict) -> str:
-    return json.dumps(dic, indent=4)
 
 
 def extract_dict_or_inner_element(elem):
