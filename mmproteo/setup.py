@@ -26,12 +26,11 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        "requests~=2.22.0",
+        "requests>=2.22.0",
         "pandas~=1.1.3",
-        "pyteomics~=4.4.1",
-        "wget~=3.2",
-        "pyarrow~=2.0.0",
-        "lxml~=4.5.0",
-        "pytest~=6.2.1",
+        "pyteomics>=4.4.0",
+        "wget>=3.2",
+        "pyarrow>=2.0.0",
+        "lxml>=4.5.0",
     ]
 )

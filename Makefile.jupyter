@@ -1,0 +1,40 @@
+JUPYTER_IMAGE = tensorflow/tensorflow:latest-gpu-jupyter
+JUPYTER_LOCAL_PORT = 8888
+JUPYTER_PORT_PUBLISHING = -p $(JUPYTER_LOCAL_PORT):8888
+JUPYTER_VOLUME_MOUNTING = -v ${PWD}:/tf/workspace
+JUPYTER_CONTAINER_NAME = gpu_jupyter
+JUPYTER_GPU = --runtime=nvidia
+JUPYTER_PARAMETERS = $(JUPYTER_GPU) $(JUPYTER_VOLUME_MOUNTING) $(JUPYTER_PORT_PUBLISHING) $(JUPYTER_IMAGE)
+
+.PHONY: monitor-gpu docker-pull docker-test docker-deploy-only docker-token docker-deploy-prepare docker-deploy docker-stop docker-rm docker-undeploy docker-redeploy
+
+monitor-gpu:
+	watch -n 1 nvidia-smi
+
+docker-pull:
+	docker pull $(JUPYTER_IMAGE)
+
+docker-test: docker-pull
+	docker run -it --rm $(JUPYTER_PARAMETERS)
+
+docker-deploy-only: docker-pull
+	docker run --restart always --detach --name=$(JUPYTER_CONTAINER_NAME) $(JUPYTER_PARAMETERS)
+	sleep 2
+
+docker-deploy-prepare:
+	docker exec $(JUPYTER_CONTAINER_NAME) pip install --upgrade -r /tf/workspace/requirements.txt
+
+docker-token:
+	-docker logs $(JUPYTER_CONTAINER_NAME) 2>&1 | grep \?token\= | tail -n 1 | grep -o 'http.*$$'
+
+docker-deploy: | docker-deploy-only docker-token docker-deploy-prepare
+
+docker-stop:
+	-docker stop $(JUPYTER_CONTAINER_NAME)
+
+docker-rm:
+	-docker rm $(JUPYTER_CONTAINER_NAME)
+
+docker-undeploy: | docker-stop docker-rm
+
+docker-redeploy: | docker-undeploy docker-deploy
