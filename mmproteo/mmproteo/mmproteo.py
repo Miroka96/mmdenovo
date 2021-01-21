@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 import sys
+import os
 import argparse
-from mmpro.utils import log, pride, utils, visualization
+from .utils import visualization, log, pride, utils
 
 logger = log.DummyLogger(send_welcome=False)
 
@@ -56,7 +57,7 @@ class Config:
                             help="Count failed files and do not just skip them. " +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("-d", Config.storage_dir_str,
-                            default="./pride",
+                            default=os.path.join(".", "pride"),
                             help="the name of the directory, in which the downloaded files and the log file will be "
                                  "stored.")
         parser.add_argument("-l", Config.log_file_str,
@@ -206,7 +207,7 @@ def dispatch_commands(config: Config):
         for command_config in command_configs:
             command_config["validator"](config)
     except Exception as e:
-        logger.error(e)
+        logger.error(str(e))
         return
 
     for command_config in command_configs:

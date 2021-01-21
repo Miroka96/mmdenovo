@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from mmpro.utils import pride
+from mmproteo.utils import pride
 import pandas as pd
 
 SAMPLE_PROJECT = "PXD010000"

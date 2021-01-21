@@ -4,8 +4,7 @@ from pyteomics import mgf, mzid
 import pandas as pd
 import json
 import os
-from mmpro.utils import log
-from mmpro.utils.utils import flatten_dict
+from mmproteo.utils import log, utils
 
 
 def iter_entries(iterator, logger: log.Logger = log.DUMMY_LOGGER) -> list:
@@ -24,20 +23,20 @@ def iter_entries(iterator, logger: log.Logger = log.DUMMY_LOGGER) -> list:
 
 def read_mgf(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mgf.read(filename), logger=logger)
-    extracted_entries = [flatten_dict(entry) for entry in entries]
+    extracted_entries = [utils.flatten_dict(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
 def extract_features_from_mzid_entry(entry: dict) -> dict:
-    result = flatten_dict(entry)
+    result = utils.flatten_dict(entry)
 
     try:
-        flatten_dict(result.pop('SpectrumIdentificationItem')[0], result)
+        utils.flatten_dict(result.pop('SpectrumIdentificationItem')[0], result)
     except KeyError:
         pass
 
     try:
-        flatten_dict(result.pop('PeptideEvidenceRef')[0], result)
+        utils.flatten_dict(result.pop('PeptideEvidenceRef')[0], result)
     except KeyError:
         pass
 

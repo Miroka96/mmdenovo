@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from mmpro.utils.utils import ensure_dir_exists
+from mmproteo.utils.utils import ensure_dir_exists
 
 LOG_FORMAT = '%(asctime)s - %(name)s: %(message)s'
 DEFAULT_LOG_SUFFIX = '.log'

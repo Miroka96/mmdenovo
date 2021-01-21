@@ -2,7 +2,7 @@ from typing import Optional, List, Callable
 import pandas as pd
 import wget
 import os
-from mmpro.utils import log, formats, pride
+from mmproteo.utils import log, formats, pride
 
 
 def create_file_extension_filter(required_file_extensions: set,

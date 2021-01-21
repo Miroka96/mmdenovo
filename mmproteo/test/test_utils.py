@@ -1,4 +1,4 @@
-from mmpro.utils import utils
+from mmproteo.utils import utils
 
 
 def test_extract_dict_or_inner_element():

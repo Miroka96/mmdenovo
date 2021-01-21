@@ -3,9 +3,9 @@ from typing import Optional
 import requests
 import json
 import pandas as pd
-from mmpro.utils import log, download as dl, formats
-from mmpro.utils.download import create_file_extension_filter
-from mmpro.utils.visualization import pretty_print_json
+from mmproteo.utils import log, download as dl, formats
+from mmproteo.utils.download import create_file_extension_filter
+from mmproteo.utils.visualization import pretty_print_json
 
 PRIDE_API_LIST_PROJECT_FILES = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
 PRIDE_API_GET_PROJECT_SUMMARY = "https://www.ebi.ac.uk:443/pride/ws/archive/project/%s"

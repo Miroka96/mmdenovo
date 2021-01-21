@@ -1,6 +1,6 @@
 import json
 
-from mmpro.utils import log
+from mmproteo.utils import log
 from typing import Optional, List
 import pandas as pd
 
