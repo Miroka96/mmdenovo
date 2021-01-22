@@ -118,7 +118,7 @@ def get_project_summary(project_name: str,
                         api_versions: List[str] = None,
                         logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
     """Get the project as a json and return it as a dataframe"""
-    if api_versions is None:
+    if api_versions is None or len(api_versions) == 0:
         api_versions = DEFAULT_PRIDE_API_VERSIONS
 
     for api_version in api_versions:
@@ -144,7 +144,7 @@ def get_project_files(project_name: str,
                       api_versions: List[str] = None,
                       logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
     """Get the project as a json and return it as a dataframe"""
-    if api_versions is None:
+    if api_versions is None or len(api_versions) == 0:
         api_versions = DEFAULT_PRIDE_API_VERSIONS
 
     for api_version in api_versions:

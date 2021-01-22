@@ -21,7 +21,10 @@ def print_df(df: pd.DataFrame,
         columns = [col for col in shown_columns if col in df.columns]
         df = df[columns]
         logger.info("Limiting the shown columns according to the shown_columns parameter")
-    print(df)
+    try:
+        print(df)
+    except BrokenPipeError:
+        pass
 
 
 def pretty_print_json(dic: Optional[dict]) -> str:
