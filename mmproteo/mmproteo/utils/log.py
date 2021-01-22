@@ -15,10 +15,13 @@ class Logger:
         self.logger.info(msg)
 
     def debug(self, msg: str = ""):
-        self.logger.debug(msg)
+        self.logger.debug("DEBUG: " + msg)
 
     def error(self, msg: str = ""):
         self.info("ERROR: " + msg)
+
+    def warning(self, msg: str = ""):
+        self.info("WARNING: " + msg)
 
 
 class DummyLogger(Logger):
@@ -35,6 +38,9 @@ class DummyLogger(Logger):
 
     def error(self, msg: str = ""):
         print("ERROR: " + msg)
+
+    def warning(self, msg: str = ""):
+        print("WARNING: " + msg)
 
 
 def create_logger(name: str,

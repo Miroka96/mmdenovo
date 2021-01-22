@@ -24,5 +24,7 @@ def print_df(df: pd.DataFrame,
     print(df)
 
 
-def pretty_print_json(dic: dict) -> str:
+def pretty_print_json(dic: Optional[dict]) -> str:
+    if dic is None:
+        return ""
     return json.dumps(dic, indent=4)
