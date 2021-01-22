@@ -1,5 +1,5 @@
 from json import JSONDecodeError
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Dict
 
 import requests
 import json
@@ -84,22 +84,45 @@ class PrideApiV1(AbstractPrideApi):
             return None, response
 
 
+def _get_compatible_v2_file_location(file_location_entries: List[Dict[str, str]]) -> Optional[Dict[str, str]]:
+    compatible_file_location_entries = [entry for entry in file_location_entries
+                                        if 'value' in entry
+                                        and entry['value'].lower().startswith(('ftp://', 'http://', 'https://'))]
+    if len(compatible_file_location_entries) > 0:
+        return compatible_file_location_entries[0]
+    return None
+
+
+def _format_v2_file_entry(file_entry: dict) -> dict:
+    if 'publicFileLocations' in file_entry:
+        try:
+            file_entry['publicFileLocations'] = _get_compatible_v2_file_location(file_entry['publicFileLocations'])
+            file_entry['publicFileLocation'] = file_entry.pop('publicFileLocations') # rename
+        except:
+            pass
+    return file_entry
+
+
 class PrideApiV2(AbstractPrideApi):
     LIST_PROJECT_FILES_URL = "https://www.ebi.ac.uk/pride/ws/archive/v2/files/byProject?accession=%s"
     GET_PROJECT_SUMMARY_URL = "https://www.ebi.ac.uk/pride/ws/archive/v2/projects/%s"
 
     def get_project_files(self, project_name: str) -> (Optional[pd.DataFrame], Response):
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
-        response_dict, response = _request_json(url=project_files_link,
-                                                subject_name="list of project files V" + self.version,
-                                                logger=self.logger)
-        if response_dict is None:
+        response_dict_list, response = _request_json(url=project_files_link,
+                                                     subject_name="list of project files V" + self.version,
+                                                     logger=self.logger)
+        if response_dict_list is None:
             return None, response
+        response_dict_list = [_format_v2_file_entry(response_dict) for response_dict in response_dict_list]
+
         try:
-            files_df = pd.DataFrame(pd.json_normalize(response_dict))
-            return files_df, response
+            files_df = pd.DataFrame(pd.json_normalize(response_dict_list))
         except:
             return None, response
+
+        files_df = files_df.rename(columns={"publicFileLocation.value": "downloadLink"})
+        return files_df, response
 
 
 PRIDE_APIS = {
