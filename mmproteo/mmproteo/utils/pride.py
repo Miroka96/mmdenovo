@@ -7,7 +7,7 @@ import pandas as pd
 from requests import Response
 
 from mmproteo.utils import log, download as dl, formats
-from mmproteo.utils.download import create_file_extension_filter
+from mmproteo.utils.formats import create_file_extension_filter
 from mmproteo.utils.visualization import pretty_print_json
 
 
@@ -45,7 +45,7 @@ def _handle_non_200_response_codes(response: Optional[Response], logger: log.Log
     return _handle_unknown_response(response.status_code, response_dict, logger)
 
 
-def _request_json(url: str, subject_name: str, logger: log.Logger = log.DUMMY_LOGGER) -> (Optional[dict], Response):
+def _request_json(url: str, subject_name: str, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
     logger.info("Requesting %s from %s" % (subject_name, url))
     response = requests.get(url)
     logger.debug("Received response from %s with length of %d bytes and status code %d" %
@@ -53,9 +53,10 @@ def _request_json(url: str, subject_name: str, logger: log.Logger = log.DUMMY_LO
 
     if response.status_code == 200:
         response_dict = json.loads(response.text)
+        return response_dict
     else:
-        response_dict = None
-    return response_dict, response
+        _handle_non_200_response_codes(response, logger)
+        return None
 
 
 class AbstractPrideApi:
@@ -66,9 +67,9 @@ class AbstractPrideApi:
         self.logger = logger
         self.version = version
 
-    def get_project_summary(self, project_name: str) -> (Optional[dict], Response):
+    def get_project_summary(self, project_name: str) -> Optional[dict]:
         project_summary_link = self.GET_PROJECT_SUMMARY_URL % project_name
-        return _request_json(project_summary_link, "project summary V" + self.version, self.logger)
+        return _request_json(project_summary_link, "project summary using API version " + self.version, self.logger)
 
     def get_project_files(self, project_name: str):
         raise NotImplementedError
@@ -78,18 +79,18 @@ class PrideApiV1(AbstractPrideApi):
     LIST_PROJECT_FILES_URL = "https://www.ebi.ac.uk/pride/ws/archive/file/list/project/%s"
     GET_PROJECT_SUMMARY_URL = "https://www.ebi.ac.uk/pride/ws/archive/project/%s"
 
-    def get_project_files(self, project_name: str) -> (Optional[pd.DataFrame], Response):
+    def get_project_files(self, project_name: str) -> Optional[pd.DataFrame]:
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
-        response_dict, response = _request_json(url=project_files_link,
-                                                subject_name="list of project files V" + self.version,
-                                                logger=self.logger)
+        response_dict = _request_json(url=project_files_link,
+                                      subject_name="list of project files using API version " + self.version,
+                                      logger=self.logger)
         if response_dict is None:
-            return None, response
+            return None
         try:
             files_df = pd.DataFrame(pd.json_normalize(response_dict['list']))
-            return files_df, response
+            return files_df
         except:
-            return None, response
+            return None
 
 
 class PrideApiV2(AbstractPrideApi):
@@ -116,22 +117,22 @@ class PrideApiV2(AbstractPrideApi):
                 pass
         return file_entry
 
-    def get_project_files(self, project_name: str) -> (Optional[pd.DataFrame], Response):
+    def get_project_files(self, project_name: str) -> Optional[pd.DataFrame]:
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
-        response_dict_list, response = _request_json(url=project_files_link,
-                                                     subject_name="list of project files V" + self.version,
-                                                     logger=self.logger)
+        response_dict_list = _request_json(url=project_files_link,
+                                           subject_name="list of project files using API version " + self.version,
+                                           logger=self.logger)
         if response_dict_list is None:
-            return None, response
+            return None
         response_dict_list = [self._format_file_entry(response_dict) for response_dict in response_dict_list]
 
         try:
             files_df = pd.DataFrame(pd.json_normalize(response_dict_list))
         except:
-            return None, response
+            return None
 
         files_df = files_df.rename(columns={"publicFileLocation.value": "downloadLink"})
-        return files_df, response
+        return files_df
 
 
 PRIDE_APIS = {
@@ -155,11 +156,10 @@ def get_project_summary(project_name: str,
 
     for api_version in api_versions:
         api = PRIDE_APIS[api_version](api_version, logger)
-        response_dict, response = api.get_project_summary(project_name)
+        response_dict = api.get_project_summary(project_name)
         if response_dict is not None:
-            logger.info("Received project summary V%s for project \"%s\"" % (api_version, project_name))
+            logger.info("Received project summary (using API version %s) for project \"%s\"" % (api_version, project_name))
             return response_dict
-        _handle_non_200_response_codes(response, logger)
 
     logger.error("Could not get project summary.")
     return None
@@ -181,12 +181,11 @@ def get_project_files(project_name: str,
 
     for api_version in api_versions:
         api = PRIDE_APIS[api_version](api_version, logger)
-        files_df, response = api.get_project_files(project_name)
+        files_df = api.get_project_files(project_name)
         if files_df is not None:
-            logger.info("Received project file list V%s with %d files for project \"%s\"" %
+            logger.info("Received project file list (using API version %s) with %d files for project \"%s\"" %
                         (api_version, len(files_df), project_name))
             return files_df
-        _handle_non_200_response_codes(response, logger)
 
     logger.error("Could not get list of project files.")
     return None

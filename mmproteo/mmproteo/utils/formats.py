@@ -1,4 +1,4 @@
-from typing import Optional, Set
+from typing import Optional, Set, Callable
 
 from pyteomics import mgf, mzid
 import pandas as pd
@@ -114,3 +114,19 @@ def extract_file_if_possible(filename: Optional[str],
         logger.info('Failed extracting downloaded file "%s" (return code = %d)' % (filename, return_code))
 
     return new_filename
+
+
+def create_file_extension_filter(required_file_extensions: Set[str],
+                                 optional_file_extensions: Optional[Set[str]] = None) -> Callable[[str], bool]:
+    if optional_file_extensions is None:
+        file_extensions = set(required_file_extensions)
+    else:
+        file_extensions = {required_extension + "." + optional_extension
+                           for required_extension in required_file_extensions
+                           for optional_extension in optional_file_extensions}
+        file_extensions.update(required_file_extensions)
+
+    def filter_file_extension(filename: str) -> bool:
+        return filename.lower().endswith(tuple(file_extensions))
+
+    return filter_file_extension

@@ -1,24 +1,8 @@
-from typing import Optional, List, Callable, Set
+from typing import Optional, List
 import pandas as pd
 import wget
 import os
 from mmproteo.utils import log, formats, pride
-
-
-def create_file_extension_filter(required_file_extensions: Set[str],
-                                 optional_file_extensions: Optional[Set[str]] = None) -> Callable[[str], bool]:
-    if optional_file_extensions is None:
-        file_extensions = set(required_file_extensions)
-    else:
-        file_extensions = {required_extension + "." + optional_extension
-                           for required_extension in required_file_extensions
-                           for optional_extension in optional_file_extensions}
-        file_extensions.update(required_file_extensions)
-
-    def filter_file_extension(filename: str) -> bool:
-        return filename.lower().endswith(tuple(file_extensions))
-
-    return filter_file_extension
 
 
 def download_file(link: str, skip_existing: bool = True) -> (str, str):
