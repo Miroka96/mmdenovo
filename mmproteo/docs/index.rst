@@ -10,7 +10,8 @@ Welcome to MMProteo's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   mmproteo/usage
+   mmproteo/code
 
 Indices and tables
 ==================

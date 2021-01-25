@@ -1,3 +1,3 @@
 mmproteo
 pytest
-sphinx
+sphinx==3.4.3

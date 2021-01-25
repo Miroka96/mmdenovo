@@ -140,3 +140,6 @@ dumps/
 __pycache__/
 .vscode/
 *.egg-info/
+
+# sphinx (documentation) build directory
+_build/
