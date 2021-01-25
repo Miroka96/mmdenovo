@@ -1,19 +1,14 @@
 import os
 import re
 from setuptools import setup, find_packages
+import versioneer
 
 with open(os.path.join('..', 'README.md'), "r") as file:
     read_me = file.read()
 
-version = re.search(
-    r'^__version__\s*=\s*"(.*)"',
-    open('mmproteo/mmproteo.py').read(),
-    re.M
-).group(1)
-
 setup(
     name='mmproteo',
-    version=version,
+    version=versioneer.get_version(),
     description='Mirko meets Proteomics: A PRIDE downloader on steroids for deep learning-based DeNovo Sequencing',
     long_description=read_me,
     long_description_content_type="text/markdown",
@@ -39,5 +34,6 @@ setup(
         "wget>=3.2",
         "pyarrow>=2.0.0",
         "lxml>=4.5.0",
-    ]
+    ],
+    cmdclass=versioneer.get_cmdclass(),
 )

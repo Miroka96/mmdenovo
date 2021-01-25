@@ -3,8 +3,8 @@ import sys
 import os
 import argparse
 from .utils import visualization, log, pride, utils, formats
+from .__init__ import __version__
 
-__version__ = "0.2.2"
 logger = log.DummyLogger(send_welcome=False)
 
 
