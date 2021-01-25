@@ -76,10 +76,12 @@ def get_string_of_extractable_file_extensions(extension_quote: str = '"', separa
     return separator.join([extension_quote + ext + extension_quote for ext in get_extractable_file_extensions()])
 
 
-def separate_archive_extension(filename: str) -> (str, str):
+def separate_archive_extension(filename: str, extensions: Set[str] = None) -> (str, str):
+    if extensions is None:
+        extensions = FILE_EXTRACTION_CONFIG.keys()
     lower_filename = filename.lower()
     longest_extension = ""
-    for ext in FILE_EXTRACTION_CONFIG.keys():
+    for ext in extensions:
         if lower_filename.endswith(ext) and len(longest_extension) < len(ext):
             longest_extension = ext
 

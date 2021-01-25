@@ -1,24 +1,22 @@
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Set
 import pandas as pd
 import wget
 import os
 from mmproteo.utils import log, formats, pride
 
 
-def create_file_extension_filter(required_file_extensions: set,
-                                 optional_file_extensions: Optional[set] = None) -> Callable[[str], bool]:
-    if optional_file_extensions is not None:
-        assert len(required_file_extensions.intersection(optional_file_extensions)) == 0, "Extension sets must be " \
-                                                                                          "distinct."
+def create_file_extension_filter(required_file_extensions: Set[str],
+                                 optional_file_extensions: Optional[Set[str]] = None) -> Callable[[str], bool]:
+    if optional_file_extensions is None:
+        file_extensions = set(required_file_extensions)
+    else:
+        file_extensions = {required_extension + "." + optional_extension
+                           for required_extension in required_file_extensions
+                           for optional_extension in optional_file_extensions}
+        file_extensions.update(required_file_extensions)
 
-    def filter_file_extension(filename: str):
-        filename = filename.lower()
-        extensions = reversed(filename.split("."))
-        extension = next(extensions)
-        if optional_file_extensions is not None:
-            if extension in optional_file_extensions:
-                extension = next(extensions, extension)
-        return extension in required_file_extensions
+    def filter_file_extension(filename: str) -> bool:
+        return filename.lower().endswith(tuple(file_extensions))
 
     return filter_file_extension
 
