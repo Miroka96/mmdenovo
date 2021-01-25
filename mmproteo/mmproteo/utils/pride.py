@@ -11,6 +11,12 @@ from mmproteo.utils.download import create_file_extension_filter
 from mmproteo.utils.visualization import pretty_print_json
 
 
+# HTTP 204 - No Content
+def _handle_204_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    logger.error("Repository does not exist")
+
+
+# HTTP 401 - Unauthorized
 def _handle_401_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     message = response_dict.get('message', "?")
     developer_message = response_dict.get('developerMessage', "?")
@@ -26,6 +32,8 @@ def _handle_unknown_response(status_code: int, response_dict: dict, logger: log.
 def _handle_non_200_response_codes(response: Optional[Response], logger: log.Logger = log.DUMMY_LOGGER) -> None:
     if response is None:
         return None
+    if response.status_code == 204:
+        return _handle_204_response(logger=logger)
     try:
         response_dict = json.loads(response.text)
     except JSONDecodeError:
