@@ -156,6 +156,7 @@ def run_download(config: Config):
     visualization.print_df(df=downloaded_files,
                            max_num_files=None,
                            shown_columns=config.shown_columns,
+                           urlencode_columns=['downloadLink'],
                            logger=logger)
 
 
@@ -189,6 +190,7 @@ def run_ls(config: Config):
     visualization.print_df(df=project_files,
                            max_num_files=config.max_num_files,
                            shown_columns=config.shown_columns,
+                           urlencode_columns=['downloadLink'],
                            logger=logger)
 
 

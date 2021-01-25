@@ -84,28 +84,29 @@ class PrideApiV1(AbstractPrideApi):
             return None, response
 
 
-def _get_compatible_v2_file_location(file_location_entries: List[Dict[str, str]]) -> Optional[Dict[str, str]]:
-    compatible_file_location_entries = [entry for entry in file_location_entries
-                                        if 'value' in entry
-                                        and entry['value'].lower().startswith(('ftp://', 'http://', 'https://'))]
-    if len(compatible_file_location_entries) > 0:
-        return compatible_file_location_entries[0]
-    return None
-
-
-def _format_v2_file_entry(file_entry: dict) -> dict:
-    if 'publicFileLocations' in file_entry:
-        try:
-            file_entry['publicFileLocations'] = _get_compatible_v2_file_location(file_entry['publicFileLocations'])
-            file_entry['publicFileLocation'] = file_entry.pop('publicFileLocations') # rename
-        except:
-            pass
-    return file_entry
-
-
 class PrideApiV2(AbstractPrideApi):
     LIST_PROJECT_FILES_URL = "https://www.ebi.ac.uk/pride/ws/archive/v2/files/byProject?accession=%s"
     GET_PROJECT_SUMMARY_URL = "https://www.ebi.ac.uk/pride/ws/archive/v2/projects/%s"
+
+    @staticmethod
+    def _get_ftp_or_http_file_location(file_location_entries: List[Dict[str, str]]) -> Optional[Dict[str, str]]:
+        compatible_file_location_entries = [entry for entry in file_location_entries
+                                            if 'value' in entry
+                                            and entry['value'].lower().startswith(('ftp://', 'http://', 'https://'))]
+        if len(compatible_file_location_entries) > 0:
+            return compatible_file_location_entries[0]
+        return None
+
+    @staticmethod
+    def _format_file_entry(file_entry: dict) -> dict:
+        if 'publicFileLocations' in file_entry:
+            try:
+                file_entry['publicFileLocations'] = PrideApiV2._get_ftp_or_http_file_location(
+                    file_entry['publicFileLocations'])
+                file_entry['publicFileLocation'] = file_entry.pop('publicFileLocations')  # rename to singular
+            except:
+                pass
+        return file_entry
 
     def get_project_files(self, project_name: str) -> (Optional[pd.DataFrame], Response):
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
@@ -114,7 +115,7 @@ class PrideApiV2(AbstractPrideApi):
                                                      logger=self.logger)
         if response_dict_list is None:
             return None, response
-        response_dict_list = [_format_v2_file_entry(response_dict) for response_dict in response_dict_list]
+        response_dict_list = [self._format_file_entry(response_dict) for response_dict in response_dict_list]
 
         try:
             files_df = pd.DataFrame(pd.json_normalize(response_dict_list))

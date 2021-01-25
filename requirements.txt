@@ -1,3 +1,9 @@
-mmproteo
+mmproteo~=0+untagged.31.gd383a18.dirty
 pytest
 sphinx==3.4.3
+versioneer~=0.19
+pandas~=1.2.1
+requests~=2.25.1
+pyteomics~=4.4.1
+wget~=3.2
+setuptools~=52.0.0
