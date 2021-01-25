@@ -7,3 +7,4 @@ requests~=2.25.1
 pyteomics~=4.4.1
 wget~=3.2
 setuptools~=52.0.0
+wheel~=0.36.2
