@@ -2,10 +2,23 @@
 import sys
 import os
 import argparse
+from typing import Dict, Union, Callable, List
+
 from .utils import visualization, log, pride, utils, formats
 from .__init__ import __version__
 
-logger = log.DummyLogger(send_welcome=False)
+logger = log.DUMMY_LOGGER
+
+
+class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+
+    def _split_lines(self, text: str, width: int) -> List[str]:
+        lines = text.splitlines()
+        wrapped_lines = []
+        import textwrap
+        for line in lines:
+            wrapped_lines += textwrap.wrap(line, width)
+        return wrapped_lines
 
 
 class Config:
@@ -26,15 +39,16 @@ class Config:
         self.commands = None
         self.pride_versions = None
 
-    def parse_arguments(self):
-        parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    def parse_arguments(self) -> None:
+        parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
 
         parser.add_argument("command",
                             nargs='+',
                             choices=list(COMMAND_DISPATCHER.keys()),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
-                                 "Duplicates are dropped after the first occurrence.")
+                                 "Duplicates are dropped after the first occurrence.\n" +
+                                 get_command_descriptions())
         parser.add_argument("-p", Config.pride_project_str,
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
@@ -115,19 +129,19 @@ class Config:
 
         self.commands = utils.deduplicate_list(args.command)
 
-    def require_pride_project(self):
+    def require_pride_project(self) -> None:
         assert self.pride_project is not None, Config.pride_project_str + " is missing"
         assert len(self.pride_project) > 0, Config.pride_project_str + " must not be empty"
 
-    def validate_arguments(self):
+    def validate_arguments(self) -> None:
         assert len(self.storage_dir) > 0, "download-dir must not be empty"
         assert len(self.log_file) > 0, "log-file must not be empty"
 
-    def check(self):
+    def check(self) -> None:
         utils.ensure_dir_exists(self.storage_dir)
 
 
-def set_logger(config: Config):
+def set_logger(config: Config) -> None:
     global logger
     if config.log_to_stdout:
         log_to_std = sys.stdout
@@ -141,7 +155,7 @@ def set_logger(config: Config):
                                log_to_std=log_to_std)
 
 
-def run_download(config: Config):
+def run_download(config: Config) -> None:
     downloaded_files = pride.download(project_name=config.pride_project,
                                       api_versions=config.pride_versions,
                                       logger=logger,
@@ -160,7 +174,7 @@ def run_download(config: Config):
                            logger=logger)
 
 
-def validate_download(config: Config):
+def validate_download(config: Config) -> None:
     config.require_pride_project()
 
     if len(config.valid_file_extensions) != 0 and config.max_num_files % len(config.valid_file_extensions) != 0:
@@ -169,18 +183,18 @@ def validate_download(config: Config):
             "files that belong together are also downloaded together")
 
 
-def run_info(config: Config):
+def run_info(config: Config) -> None:
     project_info = pride.info(project_name=config.pride_project, api_versions=config.pride_versions, logger=logger)
     if project_info is None:
         return
     print(project_info)
 
 
-def validate_info(config: Config):
+def validate_info(config: Config) -> None:
     config.require_pride_project()
 
 
-def run_ls(config: Config):
+def run_ls(config: Config) -> None:
     project_files = pride.list_files(project_name=config.pride_project,
                                      api_versions=config.pride_versions,
                                      file_extensions=config.valid_file_extensions,
@@ -194,24 +208,38 @@ def run_ls(config: Config):
                            logger=logger)
 
 
-def validate_ls(config: Config):
+def validate_ls(config: Config) -> None:
     config.require_pride_project()
 
 
-COMMAND_DISPATCHER = {
+COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config], None], str]]] = {
     "download": {
         "handler": run_download,
         "validator": validate_info,
+        "description": "download files from a given project"
     },
     "info": {
         "handler": run_info,
         "validator": validate_info,
+        "description": "request project information for a given project"
     },
     "ls": {
         "handler": run_ls,
         "validator": validate_info,
+        "description": "list files and their attributes in a given project"
     }
 }
+
+
+def _pad_command(command: str, width: int) -> str:
+    return command.ljust(width)
+
+
+def get_command_descriptions() -> str:
+    longest_command_length = max([len(command) for command in COMMAND_DISPATCHER.keys()])
+
+    return '\n'.join([_pad_command(command, longest_command_length) + " : " + config['description']
+                      for command, config in COMMAND_DISPATCHER.items()])
 
 
 def get_command_config(command: str):
