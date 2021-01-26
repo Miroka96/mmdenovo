@@ -1,13 +1,16 @@
-from typing import Optional, Set, Callable
+from typing import Optional, Set, Callable, Union, Any, Dict, List
 
 from pyteomics import mgf, mzid
 import pandas as pd
-import json
 import os
-from mmproteo.utils import log, utils
+
+from pyteomics.mgf import MGFBase
+from pyteomics.mzid import MzIdentML
+
+from mmproteo.utils import log, utils, visualization
 
 
-def iter_entries(iterator, logger: log.Logger = log.DUMMY_LOGGER) -> list:
+def iter_entries(iterator: Union[MGFBase, MzIdentML], logger: log.Logger = log.DUMMY_LOGGER) -> List[Dict[str, Any]]:
     logger.debug(type(iterator))
     entries = list(iterator)
     logger.debug("Length: %d" % len(entries))
@@ -15,7 +18,7 @@ def iter_entries(iterator, logger: log.Logger = log.DUMMY_LOGGER) -> list:
         logger.debug("Example:")
         logger.debug()
         try:
-            logger.debug(json.dumps(entries[0], indent=4))
+            logger.debug(visualization.pretty_print_json(entries[0]))
         except TypeError:
             logger.debug(entries[0])
     return entries
@@ -27,7 +30,7 @@ def read_mgf(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFra
     return pd.DataFrame(data=extracted_entries)
 
 
-def extract_features_from_mzid_entry(entry: dict) -> dict:
+def extract_features_from_mzid_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     result = utils.flatten_dict(entry)
 
     try:
@@ -49,23 +52,41 @@ def read_mzid(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFr
     return pd.DataFrame(data=extracted_entries)
 
 
+def read_parquet(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+    return pd.read_parquet(filename)
+
+
+FILE_READING_CONFIG: Dict[str, Callable[[str, log.Logger], pd.DataFrame]] = {
+    "mgf": read_mgf,
+    "mzid": read_mzid,
+    "parquet": read_parquet,
+}
+
+
+def get_readable_file_extensions() -> Set[str]:
+    return set(FILE_READING_CONFIG.keys())
+
+
 def read(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    if filename.endswith('.mgf'):
-        df = read_mgf(filename, logger=logger)
-    elif filename.endswith('.mzid'):
-        df = read_mzid(filename, logger=logger)
+    _, ext = separate_extension(filename=filename, extensions=get_readable_file_extensions())
+
+    if len(ext) > 0:
+        logger.debug("Started reading %s file '%s'" % (ext, filename))
+        df = FILE_READING_CONFIG[ext](filename, logger)
+        logger.debug("Finished reading %s file '%s'" % (ext, filename))
     else:
         raise NotImplementedError
     return df
 
 
-FILE_EXTRACTION_CONFIG = {
+FILE_EXTRACTION_CONFIG: Dict[str, Dict[str, str]] = {
     "gz": {
         "command": 'gunzip "%s"'
     },
     "zip": {
         "command": 'unzip "%s"'
-    }}
+    },
+}
 
 
 def get_extractable_file_extensions() -> Set[str]:
@@ -76,9 +97,7 @@ def get_string_of_extractable_file_extensions(extension_quote: str = '"', separa
     return separator.join([extension_quote + ext + extension_quote for ext in get_extractable_file_extensions()])
 
 
-def separate_archive_extension(filename: str, extensions: Set[str] = None) -> (str, str):
-    if extensions is None:
-        extensions = FILE_EXTRACTION_CONFIG.keys()
+def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
     lower_filename = filename.lower()
     longest_extension = ""
     for ext in extensions:
@@ -95,7 +114,7 @@ def extract_file_if_possible(filename: Optional[str],
     if filename is None:
         return None
 
-    _, file_ext = separate_archive_extension(filename.lower())
+    _, file_ext = separate_extension(filename.lower(), get_extractable_file_extensions())
     if len(file_ext) > 0:
         return filename
 
@@ -124,7 +143,7 @@ def create_file_extension_filter(required_file_extensions: Set[str],
         file_extensions = {required_extension + "." + optional_extension
                            for required_extension in required_file_extensions
                            for optional_extension in optional_file_extensions}
-        file_extensions.update(required_file_extensions)
+        file_extensions.update(required_file_extensions) # add all
 
     def filter_file_extension(filename: str) -> bool:
         return filename.lower().endswith(tuple(file_extensions))

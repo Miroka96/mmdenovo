@@ -20,7 +20,7 @@ def download_file(link: str, skip_existing: bool = True) -> (str, str):
             downloaded_file_name = filename
             skip_reason = 'file "%s" already exists' % downloaded_file_name
 
-        extracted_file_name, extension = formats.separate_archive_extension(filename)
+        extracted_file_name, extension = formats.separate_extension(filename, formats.get_extractable_file_extensions())
         file_is_extractable = len(extension) > 0
 
         if file_is_extractable:
