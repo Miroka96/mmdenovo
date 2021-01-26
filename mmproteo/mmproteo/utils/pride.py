@@ -13,7 +13,7 @@ from mmproteo.utils.visualization import pretty_print_json
 
 # HTTP 204 - No Content
 def _handle_204_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    logger.error("Repository does not exist")
+    logger.warning("Repository does not exist")
 
 
 # HTTP 401 - Unauthorized
@@ -21,11 +21,11 @@ def _handle_401_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOG
     message = response_dict.get('message', "?")
     developer_message = response_dict.get('developerMessage', "?")
     more_info_url = response_dict.get('moreInfoUrl', "?")
-    logger.error("%s (%s) -> %s" % (message, developer_message, more_info_url))
+    logger.warning("%s (%s) -> %s" % (message, developer_message, more_info_url))
 
 
 def _handle_unknown_response(status_code: int, response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    logger.error("Received unknown response code %d or content" % status_code)
+    logger.warning("Received unknown response code %d or content" % status_code)
     logger.debug(pretty_print_json(response_dict))
 
 
@@ -37,7 +37,7 @@ def _handle_non_200_response_codes(response: Optional[Response], logger: log.Log
     try:
         response_dict = json.loads(response.text)
     except JSONDecodeError:
-        logger.error("Received unknown non-JSON response with response code %d" % response.status_code)
+        logger.warning("Received unknown non-JSON response with response code %d" % response.status_code)
         logger.debug("Response text: '%s'" % response.text)
         return
     if response.status_code == 401:
@@ -158,10 +158,11 @@ def get_project_summary(project_name: str,
         api = PRIDE_APIS[api_version](api_version, logger)
         response_dict = api.get_project_summary(project_name)
         if response_dict is not None:
-            logger.info("Received project summary (using API version %s) for project \"%s\"" % (api_version, project_name))
+            logger.info("Received project summary using API version %s for project \"%s\"" %
+                        (api_version, project_name))
             return response_dict
 
-    logger.error("Could not get project summary.")
+    logger.warning("Could not get project summary.")
     return None
 
 
@@ -183,11 +184,11 @@ def get_project_files(project_name: str,
         api = PRIDE_APIS[api_version](api_version, logger)
         files_df = api.get_project_files(project_name)
         if files_df is not None:
-            logger.info("Received project file list (using API version %s) with %d files for project \"%s\"" %
+            logger.info("Received project file list using API version %s with %d files for project \"%s\"" %
                         (api_version, len(files_df), project_name))
             return files_df
 
-    logger.error("Could not get list of project files.")
+    logger.warning("Could not get list of project files.")
     return None
 
 

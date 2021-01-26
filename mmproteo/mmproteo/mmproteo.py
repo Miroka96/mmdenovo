@@ -2,12 +2,10 @@
 import sys
 import os
 import argparse
-from typing import Dict, Union, Callable, List
+from typing import Dict, Union, Callable, List, Optional
 
 from .utils import visualization, log, pride, utils, formats
 from .__init__ import __version__
-
-logger = log.DUMMY_LOGGER
 
 
 class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
@@ -22,34 +20,35 @@ class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpForma
 
 
 class Config:
-    pride_project_str = "--pride-project"
+    _pride_project_str = "--pride-project"
 
     def __init__(self):
-        self.pride_project = None
-        self.max_num_files = None
-        self.count_failed_files = None
-        self.storage_dir = None
-        self.log_file = None
-        self.log_to_stdout = None
-        self.valid_file_extensions = None
-        self.skip_existing = None
-        self.extract = None
-        self.verbose = None
-        self.shown_columns = None
-        self.commands = None
-        self.pride_versions = None
+        self.pride_project: Optional[str] = None
+        self.max_num_files: Optional[int] = None
+        self.count_failed_files: Optional[bool] = None
+        self.storage_dir: Optional[str] = None
+        self.log_file: Optional[str] = None
+        self.log_to_stdout: Optional[bool] = None
+        self.valid_file_extensions: Optional[List[str]] = None
+        self.skip_existing: Optional[bool] = None
+        self.extract: Optional[bool] = None
+        self.verbose: Optional[bool] = None
+        self.shown_columns: Optional[List[str]] = None
+        self.commands: Optional[List[str]] = None
+        self.pride_versions: Optional[List[str]] = None
+        self.fail_early: Optional[bool] = None
 
     def parse_arguments(self) -> None:
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
 
         parser.add_argument("command",
                             nargs='+',
-                            choices=list(COMMAND_DISPATCHER.keys()),
+                            choices=list(_COMMAND_DISPATCHER.keys()),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.\n" +
-                                 get_command_descriptions())
-        parser.add_argument("-p", Config.pride_project_str,
+                                 _get_command_descriptions_str())
+        parser.add_argument("-p", Config._pride_project_str,
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
                                  "For some commands, this parameter is required.")
@@ -95,6 +94,9 @@ class Config:
         parser.add_argument("-v", "--verbose",
                             action="store_true",
                             help="Increase output verbosity to debug level.")
+        parser.add_argument("-f", "--fail-early",
+                            action="store_true",
+                            help="Fail already on warnings.")
         parser.add_argument('--version',
                             action='version',
                             version='%(prog)s ' + __version__,
@@ -124,25 +126,25 @@ class Config:
         self.skip_existing = (not args.no_skip_existing)
         self.extract = (not args.no_extract)
         self.verbose = args.verbose
+        self.fail_early = args.fail_early
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
 
         self.commands = utils.deduplicate_list(args.command)
 
-    def require_pride_project(self) -> None:
-        assert self.pride_project is not None, Config.pride_project_str + " is missing"
-        assert len(self.pride_project) > 0, Config.pride_project_str + " must not be empty"
+    def require_pride_project(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        logger.assert_true(self.pride_project is not None, Config._pride_project_str + " is missing")
+        logger.assert_true(len(self.pride_project) > 0, Config._pride_project_str + " must not be empty")
 
-    def validate_arguments(self) -> None:
-        assert len(self.storage_dir) > 0, "download-dir must not be empty"
-        assert len(self.log_file) > 0, "log-file must not be empty"
+    def validate_arguments(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        logger.assert_true(len(self.storage_dir) > 0, "download-dir must not be empty")
+        logger.assert_true(len(self.log_file) > 0, "log-file must not be empty")
 
-    def check(self) -> None:
-        utils.ensure_dir_exists(self.storage_dir)
+    def check(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        utils.ensure_dir_exists(self.storage_dir, logger=logger)
 
 
-def set_logger(config: Config) -> None:
-    global logger
+def create_logger(config: Config) -> log.Logger:
     if config.log_to_stdout:
         log_to_std = sys.stdout
     else:
@@ -152,10 +154,12 @@ def set_logger(config: Config) -> None:
                                log_dir=config.storage_dir,
                                filename=config.log_file,
                                verbose=config.verbose,
-                               log_to_std=log_to_std)
+                               log_to_std=log_to_std,
+                               fail_early=config.fail_early)
+    return logger
 
 
-def run_download(config: Config) -> None:
+def _run_download(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     downloaded_files = pride.download(project_name=config.pride_project,
                                       api_versions=config.pride_versions,
                                       logger=logger,
@@ -174,27 +178,27 @@ def run_download(config: Config) -> None:
                            logger=logger)
 
 
-def validate_download(config: Config) -> None:
-    config.require_pride_project()
+def _validate_download(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    config.require_pride_project(logger=logger)
 
     if len(config.valid_file_extensions) != 0 and config.max_num_files % len(config.valid_file_extensions) != 0:
-        logger.warning(
+        logger.info(
             "max-num-files should be a multiple of the number of valid_file_extensions to make sure that "
             "files that belong together are also downloaded together")
 
 
-def run_info(config: Config) -> None:
+def _run_info(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     project_info = pride.info(project_name=config.pride_project, api_versions=config.pride_versions, logger=logger)
     if project_info is None:
         return
     print(project_info)
 
 
-def validate_info(config: Config) -> None:
-    config.require_pride_project()
+def _validate_info(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    config.require_pride_project(logger=logger)
 
 
-def run_ls(config: Config) -> None:
+def _run_ls(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     project_files = pride.list_files(project_name=config.pride_project,
                                      api_versions=config.pride_versions,
                                      file_extensions=config.valid_file_extensions,
@@ -208,24 +212,24 @@ def run_ls(config: Config) -> None:
                            logger=logger)
 
 
-def validate_ls(config: Config) -> None:
-    config.require_pride_project()
+def _validate_ls(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    config.require_pride_project(logger=logger)
 
 
-COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config], None], str]]] = {
+_COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config, log.Logger], None], str]]] = {
     "download": {
-        "handler": run_download,
-        "validator": validate_info,
+        "handler": _run_download,
+        "validator": _validate_info,
         "description": "download files from a given project"
     },
     "info": {
-        "handler": run_info,
-        "validator": validate_info,
+        "handler": _run_info,
+        "validator": _validate_info,
         "description": "request project information for a given project"
     },
     "ls": {
-        "handler": run_ls,
-        "validator": validate_info,
+        "handler": _run_ls,
+        "validator": _validate_info,
         "description": "list files and their attributes in a given project"
     }
 }
@@ -235,43 +239,46 @@ def _pad_command(command: str, width: int) -> str:
     return command.ljust(width)
 
 
-def get_command_descriptions() -> str:
-    longest_command_length = max([len(command) for command in COMMAND_DISPATCHER.keys()])
+def _get_command_descriptions_str() -> str:
+    longest_command_length = max([len(command) for command in _COMMAND_DISPATCHER.keys()])
 
     return '\n'.join([_pad_command(command, longest_command_length) + " : " + config['description']
-                      for command, config in COMMAND_DISPATCHER.items()])
+                      for command, config in _COMMAND_DISPATCHER.items()])
 
 
-def get_command_config(command: str):
-    command_config = COMMAND_DISPATCHER.get(command)
+def _get_command_config(command: str):
+    command_config = _COMMAND_DISPATCHER.get(command)
     if command_config is None:
         raise NotImplementedError("%s is no known command")
     return command_config
 
 
-def dispatch_commands(config: Config):
-    command_configs = [get_command_config(command) for command in config.commands]
+def _dispatch_commands(config: Config, logger: log.Logger = log.DUMMY_LOGGER):
+    command_configs = [_get_command_config(command) for command in config.commands]
 
     try:
         for command_config in command_configs:
-            command_config["validator"](config)
+            command_config["validator"](config, logger)
     except Exception as e:
         logger.error(str(e))
-        return
 
     for command_config in command_configs:
-        command_config["handler"](config)
+        command_config["handler"](config, logger)
 
 
-def main(config: Config = None):
+def main(config: Config = None, logger: log.Logger = None):
     if config is None:
         config = Config()
         config.parse_arguments()
     config.validate_arguments()
-    config.check()
-    set_logger(config)
+    if logger is not None:
+        config.check(logger=logger)
+    else:
+        config.check()
+    if logger is None:
+        logger = create_logger(config)
 
-    dispatch_commands(config)
+    _dispatch_commands(config=config, logger=logger)
 
 
 if __name__ == '__main__':

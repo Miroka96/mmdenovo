@@ -1,16 +1,19 @@
 import os
+from mmproteo.utils import log
+from typing import List, Hashable, Iterable, Union, Any
 
 
-def ensure_dir_exists(directory):
+def ensure_dir_exists(directory: str, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     """Ensure the existence of a given directory (path) by creating it/them if they do not exist yet."""
     if len(directory) == 0:
-        return directory
-    if not os.path.exists(directory) or not os.path.isdir(directory):
-        os.makedirs(directory)
-    return directory
+        return
+    try:
+        os.makedirs(directory, exist_ok=True)
+    except FileExistsError:
+        logger.error("'%s' already exists and is not a directory")
 
 
-def deduplicate_list(lst: list) -> list:
+def deduplicate_list(lst: List[Hashable]) -> List[Hashable]:
     already_inserted = set()
     deduplicated_list = []
     for e in lst:
@@ -20,7 +23,7 @@ def deduplicate_list(lst: list) -> list:
     return deduplicated_list
 
 
-def extract_dict_or_inner_element(elem):
+def extract_dict_or_inner_element(elem: Union[Iterable, Any]) -> Union[Iterable, Any]:
     try:
         # skip one-element lists or sets,...
         while type(elem) != dict and len(elem) == 1:

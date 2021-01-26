@@ -3,15 +3,15 @@ import sys
 import logging
 from typing import TextIO, Optional
 
-from mmproteo.utils.utils import ensure_dir_exists
 
 LOG_FORMAT: str = '%(asctime)s - %(name)s: %(message)s'
 DEFAULT_LOG_SUFFIX: str = '.log'
 
 
 class Logger:
-    def __init__(self, logger):
+    def __init__(self, logger, fail_early: bool = False):
         self.logger = logger
+        self.fail_early = fail_early
 
     def info(self, msg: str = "") -> None:
         self.logger.info(msg)
@@ -21,14 +21,22 @@ class Logger:
 
     def error(self, msg: str = "") -> None:
         self.info("ERROR: " + msg)
+        sys.exit(1)
 
     def warning(self, msg: str = "") -> None:
         self.info("WARNING: " + msg)
+        if self.fail_early:
+            self.info("Shutting down because of fail-early configuration")
+            sys.exit(1)
+
+    def assert_true(self, condition: bool, error_msg: str):
+        if not condition:
+            self.error(error_msg)
 
 
 class DummyLogger(Logger):
-    def __init__(self, send_welcome=True):
-        super().__init__(None)
+    def __init__(self, send_welcome: bool = True, fail_early: bool = False):
+        super().__init__(logger=None, fail_early=fail_early)
         if send_welcome:
             self.info("Printing to Stdout")
 
@@ -40,9 +48,13 @@ class DummyLogger(Logger):
 
     def error(self, msg: str = "") -> None:
         print("ERROR: " + msg)
+        sys.exit(1)
 
     def warning(self, msg: str = "") -> None:
         print("WARNING: " + msg)
+        if self.fail_early:
+            print("Shutting down because of fail-early configuration")
+            sys.exit(1)
 
 
 def create_logger(name: str,
@@ -50,7 +62,8 @@ def create_logger(name: str,
                   verbose: Optional[bool] = None,
                   filename: Optional[str] = None,
                   log_dir: str = ".",
-                  log_to_std: Optional[TextIO] = sys.stderr) -> Logger:
+                  log_to_std: Optional[TextIO] = sys.stderr,
+                  fail_early: bool = False) -> Logger:
     if verbose is not None:
         assert level is None, "level and verbose are exclusive parameters"
         if verbose:
@@ -73,6 +86,8 @@ def create_logger(name: str,
 
         # log to file
         dir_name = os.path.dirname(filename)
+
+        from mmproteo.utils.utils import ensure_dir_exists  # prevent circular import
         ensure_dir_exists(dir_name)
         fh = logging.FileHandler(filename)
         fh.setFormatter(formatter)
@@ -90,11 +105,11 @@ def create_logger(name: str,
         else:
             logger.info("Logging to file %s" % filename)
 
-        return Logger(logger)
+        return Logger(logger, fail_early=fail_early)
     except Exception as e:
-        logger = DummyLogger()
-        logger.error("Failed to create logger " + str(name))
+        logger = DummyLogger(send_welcome=True, fail_early=fail_early)
         logger.debug(str(e))
+        logger.warning("Failed to create logger " + str(name))
         logger.info("Returned print-only dummy logger")
 
         return logger
