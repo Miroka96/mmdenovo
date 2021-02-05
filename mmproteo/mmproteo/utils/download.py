@@ -4,9 +4,10 @@ import pandas as pd
 import wget
 import os
 from mmproteo.utils import log, formats
+from mmproteo.utils.config import Config
 
 
-def download_file(link: str, skip_existing: bool = True) -> (str, str):
+def download_file(link: str, skip_existing: bool = Config.default_skip_existing) -> (str, str):
     filename = link.split("/")[-1]
     downloaded_file_name = None
 
@@ -37,8 +38,8 @@ def download_file(link: str, skip_existing: bool = True) -> (str, str):
 
 
 def download_files(links: List[str],
-                   skip_existing: bool = True,
-                   count_failed_files: bool = False,
+                   skip_existing: bool = Config.default_skip_existing,
+                   count_failed_files: bool = Config.default_count_failed_files,
                    logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
     num_files = len(links)
 
@@ -81,14 +82,14 @@ def download_files(links: List[str],
 def download(project_files: pd.DataFrame,
              valid_file_extensions: Optional[Set[str]] = None,
              max_num_files: Optional[int] = None,
-             download_dir: str = "download",
-             skip_existing: bool = True,
-             extract: bool = False,
-             count_failed_files: bool = False,
-             file_name_column: str = "fileName",
-             download_link_column: str = 'downloadLink',
-             downloaded_files_column: str = 'downloaded_files',
-             extracted_files_column: str = 'extracted_files',
+             download_dir: str = Config.default_storage_dir,
+             skip_existing: bool = Config.default_skip_existing,
+             extract: bool = False,  # TODO remove from download command
+             count_failed_files: bool = Config.default_count_failed_files,
+             file_name_column: str = Config.default_file_name_column,
+             download_link_column: str = Config.default_download_link_column,
+             downloaded_files_column: str = Config.default_downloaded_files_column,
+             extracted_files_column: str = Config.default_extracted_files_column,
              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
     filtered_files = formats.filter_files_df(files_df=project_files,
                                              file_name_column=file_name_column,

@@ -9,6 +9,7 @@ from pyteomics.mgf import MGFBase
 from pyteomics.mzid import MzIdentML
 
 from mmproteo.utils import log, utils, visualization
+from mmproteo.utils.config import Config
 
 
 def iter_entries(iterator: Union[MGFBase, MzIdentML], logger: log.Logger = log.DUMMY_LOGGER) -> List[Dict[str, Any]]:
@@ -94,7 +95,8 @@ def get_extractable_file_extensions() -> Set[str]:
     return set(_FILE_EXTRACTION_CONFIG.keys())
 
 
-def get_string_of_extractable_file_extensions(extension_quote: str = '"', separator: str = ", ") -> str:
+def get_string_of_extractable_file_extensions(extension_quote: str = Config.default_option_quote,
+                                              separator: str = Config.default_option_separator) -> str:
     return utils.concat_set_of_options(options=get_readable_file_extensions(),
                                        option_quote=extension_quote,
                                        separator=separator)
@@ -112,7 +114,7 @@ def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
 
 
 def extract_file_if_possible(filename: Optional[str],
-                             skip_existing: bool = True,
+                             skip_existing: bool = Config.default_skip_existing,
                              logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
     if filename is None:
         return None
@@ -155,7 +157,7 @@ def create_file_extension_filter(required_file_extensions: Set[str],
 
 
 def extract_files(filenames: List[Optional[str]],
-                  skip_existing: bool = True,
+                  skip_existing: bool = Config.default_skip_existing,
                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
     return [extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
             for filename in filenames]
@@ -165,7 +167,7 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
                     file_name_column: str = "fileName",
                     file_extensions: Optional[Set[str]] = None,
                     max_num_files: Optional[int] = None,
-                    sort: bool = True,
+                    sort: bool = Config.default_filter_sort,
                     logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
     if files_df is None:
         return None
@@ -209,8 +211,8 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 def filter_files_list(filenames: List[Optional[str]],
                       file_extensions: Optional[Set[str]] = None,
                       max_num_files: Optional[int] = None,
-                      sort: bool = True,
-                      drop_duplicates: bool = True,
+                      sort: bool = Config.default_filter_sort,
+                      drop_duplicates: bool = Config.default_filter_drop_duplicates,
                       logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
     filenames = [filename for filename in filenames if filename is not None]
     df = pd.DataFrame(data=filenames, columns=["fileName"])
@@ -225,13 +227,18 @@ def filter_files_list(filenames: List[Optional[str]],
     return filtered_df["fileName"].to_list()
 
 
-def start_thermo_docker_container(storage_dir: str = ".",
-                                  thermo_docker_container_name: str = "thermorawfileparser",
-                                  thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.2.3--1",
+def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
+                                  thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
+                                  thermo_docker_image: str = Config.default_thermo_docker_image,
                                   thermo_start_container_command_template: str =
-                                  "docker run --rm -w /data -v %s:/data --name %s -d %s tail -f /dev/null",
+                                  Config.default_thermo_start_container_command_template,
                                   logger: log.Logger = log.DUMMY_LOGGER) -> None:
     subject = "ThermoRawFileParser Docker container"
+
+    if utils.is_docker_container_running(thermo_docker_container_name):
+        logger.info(subject + " is already running")
+        return
+
     command = thermo_start_container_command_template % (storage_dir, thermo_docker_container_name, thermo_docker_image)
 
     logger.debug("Starting %s using '%s'" % (subject, command))
@@ -244,10 +251,16 @@ def start_thermo_docker_container(storage_dir: str = ".",
     logger.info("Started " + subject)
 
 
-def stop_thermo_docker_container(thermo_docker_container_name: str = "thermorawfileparser",
-                                 thermo_stop_container_command_template: str = "docker stop %s",
+def stop_thermo_docker_container(thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
+                                 thermo_stop_container_command_template: str =
+                                 Config.default_thermo_stop_container_command_template,
                                  logger: log.Logger = log.DUMMY_LOGGER) -> None:
     subject = "ThermoRawFileParser Docker container"
+
+    if not utils.is_docker_container_running(thermo_docker_container_name):
+        logger.info(subject + " is already stopped")
+        return
+
     command = thermo_stop_container_command_template % thermo_docker_container_name
 
     logger.debug("Stopping %s using '%s'" % (subject, command))
@@ -269,18 +282,18 @@ def get_thermo_raw_file_parser_output_formats() -> Set[str]:
     return set(_THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS.keys())
 
 
-def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = '"', separator: str = ", ") -> str:
+def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Config.default_option_quote,
+                                                        separator: str = Config.default_option_separator) -> str:
     return utils.concat_set_of_options(options=get_thermo_raw_file_parser_output_formats(),
                                        option_quote=format_quote,
                                        separator=separator)
 
 
 def convert_raw_file(filename: Optional[str],
-                     output_format: str = "mgf",
-                     skip_existing: bool = True,
-                     thermo_docker_container_name: str = "thermorawfileparser",
-                     thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'",
-                     # TODO find correct exec command
+                     output_format: str = Config.default_thermo_output_format,
+                     skip_existing: bool = Config.default_skip_existing,
+                     thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
+                     thermo_exec_command: str = Config.default_thermo_exec_command,
                      logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
     logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
                        "Invalid output format '%s'. Currently allowed formats are: [%s]"
@@ -320,11 +333,10 @@ def convert_raw_file(filename: Optional[str],
 
 
 def convert_raw_files(filenames: List[Optional[str]],
-                      output_format: str = "mgf",
-                      skip_existing: bool = True,
-                      thermo_docker_container_name: str = "thermorawfileparser",
-                      thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'",
-                      # TODO find correct exec command
+                      output_format: str = Config.default_thermo_output_format,
+                      skip_existing: bool = Config.default_skip_existing,
+                      thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
+                      thermo_exec_command: str = Config.default_thermo_exec_command,
                       logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
     return [convert_raw_file(filename=filename,
                              output_format=output_format,

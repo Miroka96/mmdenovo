@@ -82,7 +82,6 @@ def create_logger(name: str,
             level = logging.INFO
     else:
         assert level is not None, "either level or verbose must be given as parameter"
-        verbose = (level == logging.DEBUG)
     try:
         assert name is not None
         assert type(name) == str
