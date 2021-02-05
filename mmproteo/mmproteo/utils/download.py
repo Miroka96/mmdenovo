@@ -1,8 +1,11 @@
-from typing import Optional, List
+from typing import Optional, List, Set
+
+import mmproteo.utils.formats
 import pandas as pd
 import wget
 import os
 from mmproteo.utils import log, formats, pride
+from mmproteo.utils.formats import extract_files
 
 
 def download_file(link: str, skip_existing: bool = True) -> (str, str):
@@ -77,37 +80,39 @@ def download_files(links: List[str],
     return downloaded_files_names
 
 
-def extract_files(filenames: List[Optional[str]],
-                  skip_existing: bool = True,
-                  logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [formats.extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
-            for filename in filenames]
-
-
 def download(project_files: pd.DataFrame,
-             valid_file_extensions: set,
-             max_num_files: Optional[int],
-             download_dir: str,
-             skip_existing: bool,
-             extract: bool,
-             count_failed_files: bool,
+             valid_file_extensions: Optional[Set[str]] = None,
+             max_num_files: Optional[int] = None,
+             download_dir: str = "download",
+             skip_existing: bool = True,
+             extract: bool = False,
+             count_failed_files: bool = False,
+             file_name_column: str = "fileName",
+             download_link_column: str = 'downloadLink',
+             downloaded_files_column: str = 'downloaded_files',
+             extracted_files_column: str = 'extracted_files',
              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    filtered_files = pride.filter_files(files_df=project_files,
-                                        file_extensions=valid_file_extensions,
-                                        max_num_files=max_num_files,
-                                        logger=logger)
+    filtered_files = formats.filter_files_df(files_df=project_files,
+                                             file_name_column=file_name_column,
+                                             file_extensions=valid_file_extensions,
+                                             max_num_files=max_num_files,
+                                             sort=True,
+                                             logger=logger)
+    logger.assert_true(download_link_column in filtered_files.columns,
+                       "Could not find column '%s' in filtered_files dataframe" % download_link_column)
+
     initial_directory = os.getcwd()
     os.chdir(download_dir)
 
-    filtered_files['downloaded_files'] = download_files(links=filtered_files.downloadLink,
-                                                        skip_existing=skip_existing,
-                                                        count_failed_files=count_failed_files,
-                                                        logger=logger)
+    filtered_files[downloaded_files_column] = download_files(links=filtered_files[download_link_column],
+                                                             skip_existing=skip_existing,
+                                                             count_failed_files=count_failed_files,
+                                                             logger=logger)
 
     if extract:
-        filtered_files['extracted_files'] = extract_files(filenames=filtered_files.downloaded_files,
-                                                          skip_existing=skip_existing,
-                                                          logger=logger)
+        filtered_files[extracted_files_column] = extract_files(filenames=filtered_files[downloaded_files_column],
+                                                               skip_existing=skip_existing,
+                                                               logger=logger)
 
     os.chdir(initial_directory)
     return filtered_files

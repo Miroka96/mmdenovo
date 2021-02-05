@@ -10,7 +10,7 @@ def ensure_dir_exists(directory: str, logger: log.Logger = log.DUMMY_LOGGER) -> 
     try:
         os.makedirs(directory, exist_ok=True)
     except FileExistsError:
-        logger.error("'%s' already exists and is not a directory")
+        logger.warning("'%s' already exists and is not a directory")
 
 
 def deduplicate_list(lst: List[Hashable]) -> List[Hashable]:
@@ -54,3 +54,8 @@ def flatten_dict(input_dict: dict, result_dict: dict = None, overwrite: bool = F
                 result_dict[key] = value
 
     return result_dict
+
+
+def is_docker_container_running(container_name: str) -> bool:
+    return_code = os.system("docker container inspect -f '{{.State.Status}}' " + container_name)
+    return return_code == 0

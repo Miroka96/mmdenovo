@@ -6,8 +6,8 @@ import json
 import pandas as pd
 from requests import Response
 
-from mmproteo.utils import log, download as dl, formats
-from mmproteo.utils.formats import create_file_extension_filter
+from mmproteo.utils import log, download as dl
+from mmproteo.utils.formats import filter_files_df
 from mmproteo.utils.visualization import pretty_print_json
 
 
@@ -192,54 +192,35 @@ def get_project_files(project_name: str,
     return None
 
 
-def download(project_name: str, api_versions: List[str] = None, logger: log.Logger = log.DUMMY_LOGGER, **kwargs) \
+def download(project_name: str,
+             valid_file_extensions: Optional[Set[str]] = None,
+             max_num_files: Optional[int] = None,
+             download_dir: str = "download",
+             skip_existing: bool = True,
+             extract: bool = False,
+             count_failed_files: bool = False,
+             file_name_column: str = "fileName",
+             download_link_column: str = 'downloadLink',
+             downloaded_files_column: str = 'downloaded_files',
+             extracted_files_column: str = 'extracted_files',
+             api_versions: List[str] = None,
+             logger: log.Logger = log.DUMMY_LOGGER) \
         -> Optional[pd.DataFrame]:
     project_files = get_project_files(project_name=project_name, api_versions=api_versions, logger=logger)
     if project_files is None:
         return None
-    return dl.download(project_files, logger=logger, **kwargs)
-
-
-def filter_files(files_df: Optional[pd.DataFrame],
-                 file_extensions: Optional[Set[str]] = None,
-                 max_num_files: Optional[int] = None,
-                 sort: bool = True,
-                 logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
-    if files_df is None:
-        return None
-
-    if file_extensions is None or len(file_extensions) == 0:
-        logger.debug("Skipping file extension filtering")
-        filtered_files = files_df
-    else:
-        required_file_extensions = file_extensions
-        optional_file_extensions = formats.get_extractable_file_extensions()
-
-        required_file_extensions_list_str = "\", \"".join(required_file_extensions)
-        optional_file_extensions_list_str = "\", \"".join(optional_file_extensions)
-        if len(optional_file_extensions_list_str) > 0:
-            optional_file_extensions_list_str = '"' + optional_file_extensions_list_str + '"'
-        logger.info("Filtering repository files based on the following required file extensions [\"%s\"] and the "
-                    "following optional file extensions [%s]" % (required_file_extensions_list_str,
-                                                                 optional_file_extensions_list_str))
-
-        file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
-        filtered_files = files_df[files_df.fileName.apply(file_extension_filter)]
-
-        logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
-
-    if sort:
-        # sort, such that files with same prefixes but different extensions come in pairs
-        sorted_files = filtered_files.sort_values(by='fileName')
-    else:
-        sorted_files = filtered_files
-
-    if max_num_files is None or max_num_files == 0:
-        limited_files = sorted_files
-    else:
-        limited_files = sorted_files[:max_num_files]
-
-    return limited_files
+    return dl.download(project_files=project_files,
+                       valid_file_extensions=valid_file_extensions,
+                       max_num_files=max_num_files,
+                       download_dir=download_dir,
+                       skip_existing=skip_existing,
+                       extract=extract,
+                       count_failed_files=count_failed_files,
+                       file_name_column=file_name_column,
+                       download_link_column=download_link_column,
+                       downloaded_files_column=downloaded_files_column,
+                       extracted_files_column=extracted_files_column,
+                       logger=logger)
 
 
 def list_files(project_name: str,
@@ -249,4 +230,4 @@ def list_files(project_name: str,
     project_files = get_project_files(project_name=project_name, api_versions=api_versions, logger=logger)
     if project_files is None:
         return None
-    return filter_files(files_df=project_files, file_extensions=file_extensions, sort=False, logger=logger)
+    return filter_files_df(files_df=project_files, file_extensions=file_extensions, sort=False, logger=logger)

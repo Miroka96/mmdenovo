@@ -9,52 +9,62 @@ DEFAULT_LOG_SUFFIX: str = '.log'
 
 
 class Logger:
-    def __init__(self, logger, fail_early: bool = False):
+    def __init__(self,
+                 logger: Optional[logging.Logger],
+                 fail_early: bool = False,
+                 terminate_process: bool = False):
         self.logger = logger
         self.fail_early = fail_early
+        self.terminate_process = terminate_process
 
     def info(self, msg: str = "") -> None:
-        self.logger.info(msg)
+        if self.logger is not None:
+            self.logger.info(msg)
+        else:
+            print("INFO: " + msg)
 
     def debug(self, msg: str = "") -> None:
-        self.logger.debug("DEBUG: " + msg)
+        if self.logger is not None:
+            self.logger.debug("DEBUG: " + msg)
+        else:
+            print("DEBUG: " + msg)
 
     def error(self, msg: str = "") -> None:
-        self.info("ERROR: " + msg)
-        sys.exit(1)
+        if self.logger is not None:
+            self.logger.info("ERROR: " + msg)
+        else:
+            print("ERROR: " + msg)
+        if self.terminate_process:
+            sys.exit(1)
+        raise Exception(msg)
 
     def warning(self, msg: str = "") -> None:
-        self.info("WARNING: " + msg)
+        if self.logger is not None:
+            self.logger.info("WARNING: " + msg)
+        else:
+            print("WARNING: " + msg)
         if self.fail_early:
-            self.info("Shutting down because of fail-early configuration")
-            sys.exit(1)
+            if self.terminate_process:
+                self.info("Shutting down because of fail-early configuration")
+                sys.exit(1)
+            raise Exception(msg)
 
-    def assert_true(self, condition: bool, error_msg: str):
+    def assert_true(self, condition: bool, error_msg: str) -> None:
         if not condition:
             self.error(error_msg)
 
+    def is_verbose(self) -> bool:
+        if self.logger is not None:
+            return self.logger.getEffectiveLevel() == logging.DEBUG
+        else:
+            return True
+
 
 class DummyLogger(Logger):
-    def __init__(self, send_welcome: bool = True, fail_early: bool = False):
-        super().__init__(logger=None, fail_early=fail_early)
+    def __init__(self, send_welcome: bool = True, fail_early: bool = False, terminate_process: bool = False):
+        super().__init__(logger=None, fail_early=fail_early, terminate_process=terminate_process)
         if send_welcome:
             self.info("Printing to Stdout")
-
-    def info(self, msg: str = "") -> None:
-        print("INFO: " + msg)
-
-    def debug(self, msg: str = "") -> None:
-        print("DEBUG: " + msg)
-
-    def error(self, msg: str = "") -> None:
-        print("ERROR: " + msg)
-        sys.exit(1)
-
-    def warning(self, msg: str = "") -> None:
-        print("WARNING: " + msg)
-        if self.fail_early:
-            print("Shutting down because of fail-early configuration")
-            sys.exit(1)
 
 
 def create_logger(name: str,
@@ -72,6 +82,7 @@ def create_logger(name: str,
             level = logging.INFO
     else:
         assert level is not None, "either level or verbose must be given as parameter"
+        verbose = (level == logging.DEBUG)
     try:
         assert name is not None
         assert type(name) == str

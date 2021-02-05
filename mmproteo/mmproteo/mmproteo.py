@@ -3,9 +3,10 @@ import sys
 import os
 import argparse
 from typing import Dict, Union, Callable, List, Optional
+import pandas as pd
 
-from .utils import visualization, log, pride, utils, formats
-from .__init__ import __version__
+from mmproteo.utils import visualization, log, pride, utils, formats
+from mmproteo.__init__ import __version__
 
 
 class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
@@ -15,7 +16,15 @@ class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpForma
         wrapped_lines = []
         import textwrap
         for line in lines:
-            wrapped_lines += textwrap.wrap(line, width)
+            command_description_parts = line.split(" : ")
+            if len(command_description_parts) == 2 and command_description_parts[0].rstrip(" ").isalnum():
+                description_width = width - len(command_description_parts[0]) - len(" : ")
+                wrapped_description = textwrap.wrap(command_description_parts[1], description_width)
+                wrapped_lines.append(command_description_parts[0] + " : " + wrapped_description[0])
+                wrapped_lines += [" " * (width - description_width) + description_line
+                                  for description_line in wrapped_description[1:]]
+            else:
+                wrapped_lines += textwrap.wrap(line, width)
         return wrapped_lines
 
 
@@ -37,6 +46,12 @@ class Config:
         self.commands: Optional[List[str]] = None
         self.pride_versions: Optional[List[str]] = None
         self.fail_early: Optional[bool] = None
+
+        self.processed_files: Optional[pd.DataFrame] = None
+        self.file_name_column: str = "fileName"
+        self.download_link_column: str = 'downloadLink'
+        self.downloaded_files_column: str = 'downloaded_files'
+        self.extracted_files_column: str = 'extracted_files'
 
     def parse_arguments(self) -> None:
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
@@ -61,7 +76,7 @@ class Config:
                             help="Count failed files and do not just skip them. " +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("-d", "--storage-dir",
-                            default=os.path.join(".", "pride"),
+                            default=".",
                             help="the name of the directory, in which the downloaded files and the log file will be "
                                  "stored.")
         parser.add_argument("-l", "--log-file",
@@ -94,9 +109,9 @@ class Config:
         parser.add_argument("-v", "--verbose",
                             action="store_true",
                             help="Increase output verbosity to debug level.")
-        parser.add_argument("-f", "--fail-early",
+        parser.add_argument("-f", "--no-fail-early",
                             action="store_true",
-                            help="Fail already on warnings.")
+                            help="Do not fail already on warnings.")
         parser.add_argument('--version',
                             action='version',
                             version='%(prog)s ' + __version__,
@@ -126,7 +141,7 @@ class Config:
         self.skip_existing = (not args.no_skip_existing)
         self.extract = (not args.no_extract)
         self.verbose = args.verbose
-        self.fail_early = args.fail_early
+        self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
 
@@ -161,20 +176,29 @@ def create_logger(config: Config) -> log.Logger:
 
 def _run_download(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     downloaded_files = pride.download(project_name=config.pride_project,
-                                      api_versions=config.pride_versions,
-                                      logger=logger,
                                       valid_file_extensions=config.valid_file_extensions,
                                       max_num_files=config.max_num_files,
                                       download_dir=config.storage_dir,
                                       skip_existing=config.skip_existing,
                                       extract=config.extract,
-                                      count_failed_files=config.count_failed_files)
+                                      count_failed_files=config.count_failed_files,
+                                      file_name_column=config.file_name_column,
+                                      download_link_column=config.download_link_column,
+                                      downloaded_files_column=config.downloaded_files_column,
+                                      extracted_files_column=config.extracted_files_column,
+                                      api_versions=config.pride_versions,
+                                      logger=logger)
     if downloaded_files is None:
         return
+    if config.processed_files is None:
+        config.processed_files = downloaded_files
+    else:
+        config.processed_files = config.processed_files.append(downloaded_files, ignore_index=True)
+
     visualization.print_df(df=downloaded_files,
                            max_num_files=None,
                            shown_columns=config.shown_columns,
-                           urlencode_columns=['downloadLink'],
+                           urlencode_columns=[config.download_link_column],
                            logger=logger)
 
 
@@ -203,12 +227,14 @@ def _run_ls(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
                                      api_versions=config.pride_versions,
                                      file_extensions=config.valid_file_extensions,
                                      logger=logger)
+    # TODO cache project_files df for later downloading
+
     if project_files is None:
         return
     visualization.print_df(df=project_files,
                            max_num_files=config.max_num_files,
                            shown_columns=config.shown_columns,
-                           urlencode_columns=['downloadLink'],
+                           urlencode_columns=[config.download_link_column],
                            logger=logger)
 
 
@@ -216,10 +242,62 @@ def _validate_ls(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     config.require_pride_project(logger=logger)
 
 
+def _run_extract(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    if config.processed_files is not None and config.downloaded_files_column in config.processed_files.columns:
+        files_to_extract = config.processed_files[config.downloaded_files_column]
+    else:
+        paths_in_storage_dir = [os.path.join(config.storage_dir, file) for file in os.listdir(config.storage_dir)]
+        files_in_storage_dir = [path for path in paths_in_storage_dir if os.path.isfile(path)]
+        files_to_extract = files_in_storage_dir
+
+    files_to_extract = formats.filter_files_list(filenames=files_to_extract,
+                                                 file_extensions=config.valid_file_extensions,
+                                                 max_num_files=config.max_num_files,
+                                                 sort=True,
+                                                 drop_duplicates=True,
+                                                 logger=logger)
+    extracted_files = formats.extract_files(filenames=files_to_extract,
+                                            skip_existing=config.skip_existing,
+                                            logger=logger)
+    result_df = pd.DataFrame(data=extracted_files, columns=[config.extracted_files_column])
+    if config.processed_files is None:
+        config.processed_files = result_df
+    else:
+        config.processed_files.append(result_df)
+
+
+def _validate_extract(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _run_raw2mgf(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _validate_raw2mgf(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _run_mgf2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _validate_mgf2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _run_mz2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
+def _validate_mz2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    pass
+
+
 _COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config, log.Logger], None], str]]] = {
     "download": {
         "handler": _run_download,
-        "validator": _validate_info,
+        "validator": _validate_download,
         "description": "download files from a given project"
     },
     "info": {
@@ -229,8 +307,34 @@ _COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config, log.Logger], No
     },
     "ls": {
         "handler": _run_ls,
-        "validator": _validate_info,
+        "validator": _validate_ls,
         "description": "list files and their attributes in a given project"
+    },
+    "extract": {
+        "handler": _run_extract,
+        "validator": _validate_extract,
+        "description": "extract all downloaded archive files or, if none were downloaded, those in the data directory. "
+                       "Currently, the following archive formats are supported: " +
+                       formats.get_string_of_extractable_file_extensions()
+    },
+    "raw2mgf": {
+        "handler": _run_raw2mgf,
+        "validator": _validate_raw2mgf,
+        "description": "convert all downloaded or extracted raw files or, if none were downloaded or extracted, "
+                       "those raw files in the data "
+                       "directory, into mgf format using the ThermoRawFileParser"
+    },
+    "mgf2parquet": {
+        "handler": _run_mgf2parquet,
+        "validator": _validate_mgf2parquet,
+        "description": "convert all downloaded, extracted, or converted mgf files into parquet format, or, "
+                       "if no files were previously processed, convert the mgf files in the data directory"
+    },
+    "mz2parquet": {
+        "handler": _run_mz2parquet,
+        "validator": _validate_mz2parquet,
+        "description": "merge and convert all downloaded or extracted mzid and mzml files into parquet format"
+                       ", or, if no files were previously processed, merge and convert the files in the data directory."
     }
 }
 
@@ -260,7 +364,7 @@ def _dispatch_commands(config: Config, logger: log.Logger = log.DUMMY_LOGGER):
         for command_config in command_configs:
             command_config["validator"](config, logger)
     except Exception as e:
-        logger.error(str(e))
+        logger.warning(str(e))
 
     for command_config in command_configs:
         command_config["handler"](config, logger)
