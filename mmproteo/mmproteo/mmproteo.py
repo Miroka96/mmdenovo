@@ -52,6 +52,12 @@ class Config:
         self.download_link_column: str = 'downloadLink'
         self.downloaded_files_column: str = 'downloaded_files'
         self.extracted_files_column: str = 'extracted_files'
+        self.converted_mgf_files_column: str = 'converted_mgf_files'
+        self.thermo_docker_container_name: str = "thermorawfileparser"
+        self.thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.2.3--1"
+        self.thermo_start_container_command_template: str = \
+            "docker run --rm -w /data -v %s:/data --name %s -d %s tail -f /dev/null"
+        self.thermo_stop_container_command_template: str = "docker stop %s"
 
     def parse_arguments(self) -> None:
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
@@ -270,11 +276,11 @@ def _validate_extract(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> 
     pass
 
 
-def _run_raw2mgf(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    pass
+def _run_convertraw(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    formats.start_thermo_docker_container()
 
 
-def _validate_raw2mgf(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+def _validate_convertraw(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
     pass
 
 
@@ -317,12 +323,12 @@ _COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config, log.Logger], No
                        "Currently, the following archive formats are supported: " +
                        formats.get_string_of_extractable_file_extensions()
     },
-    "raw2mgf": {
-        "handler": _run_raw2mgf,
-        "validator": _validate_raw2mgf,
+    "convertraw": {
+        "handler": _run_convertraw,
+        "validator": _validate_convertraw,
         "description": "convert all downloaded or extracted raw files or, if none were downloaded or extracted, "
                        "those raw files in the data "
-                       "directory, into mgf format using the ThermoRawFileParser"
+                       "directory, into the given thermo output format using the ThermoRawFileParser"
     },
     "mgf2parquet": {
         "handler": _run_mgf2parquet,
@@ -381,6 +387,10 @@ def main(config: Config = None, logger: log.Logger = None):
         config.check()
     if logger is None:
         logger = create_logger(config)
+
+    if config.storage_dir is not None:
+        os.chdir(config.storage_dir)
+        config.storage_dir = "."
 
     _dispatch_commands(config=config, logger=logger)
 

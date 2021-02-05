@@ -1,6 +1,6 @@
 import os
 from mmproteo.utils import log
-from typing import List, Hashable, Iterable, Union, Any
+from typing import List, Hashable, Iterable, Union, Any, Set
 
 
 def ensure_dir_exists(directory: str, logger: log.Logger = log.DUMMY_LOGGER) -> None:
@@ -59,3 +59,7 @@ def flatten_dict(input_dict: dict, result_dict: dict = None, overwrite: bool = F
 def is_docker_container_running(container_name: str) -> bool:
     return_code = os.system("docker container inspect -f '{{.State.Status}}' " + container_name)
     return return_code == 0
+
+
+def concat_set_of_options(options: Iterable[str], option_quote: str = '"', separator: str = ", ") -> str:
+    return separator.join([option_quote + option + option_quote for option in options])

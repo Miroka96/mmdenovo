@@ -1,11 +1,9 @@
 from typing import Optional, List, Set
 
-import mmproteo.utils.formats
 import pandas as pd
 import wget
 import os
-from mmproteo.utils import log, formats, pride
-from mmproteo.utils.formats import extract_files
+from mmproteo.utils import log, formats
 
 
 def download_file(link: str, skip_existing: bool = True) -> (str, str):
@@ -110,9 +108,10 @@ def download(project_files: pd.DataFrame,
                                                              logger=logger)
 
     if extract:
-        filtered_files[extracted_files_column] = extract_files(filenames=filtered_files[downloaded_files_column],
-                                                               skip_existing=skip_existing,
-                                                               logger=logger)
+        filtered_files[extracted_files_column] = formats.extract_files(
+            filenames=filtered_files[downloaded_files_column],
+            skip_existing=skip_existing,
+            logger=logger)
 
     os.chdir(initial_directory)
     return filtered_files

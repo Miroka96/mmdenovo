@@ -57,7 +57,7 @@ def read_parquet(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.Dat
     return pd.read_parquet(filename)
 
 
-FILE_READING_CONFIG: Dict[str, Callable[[str, log.Logger], pd.DataFrame]] = {
+_FILE_READING_CONFIG: Dict[str, Callable[[str, log.Logger], pd.DataFrame]] = {
     "mgf": read_mgf,
     "mzid": read_mzid,
     "parquet": read_parquet,
@@ -65,7 +65,7 @@ FILE_READING_CONFIG: Dict[str, Callable[[str, log.Logger], pd.DataFrame]] = {
 
 
 def get_readable_file_extensions() -> Set[str]:
-    return set(FILE_READING_CONFIG.keys())
+    return set(_FILE_READING_CONFIG.keys())
 
 
 def read(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
@@ -73,14 +73,14 @@ def read(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
 
     if len(ext) > 0:
         logger.debug("Started reading %s file '%s'" % (ext, filename))
-        df = FILE_READING_CONFIG[ext](filename, logger)
+        df = _FILE_READING_CONFIG[ext](filename, logger)
         logger.debug("Finished reading %s file '%s'" % (ext, filename))
     else:
         raise NotImplementedError
     return df
 
 
-FILE_EXTRACTION_CONFIG: Dict[str, Dict[str, str]] = {
+_FILE_EXTRACTION_CONFIG: Dict[str, Dict[str, str]] = {
     "gz": {
         "command": 'gunzip "%s"'
     },
@@ -91,11 +91,13 @@ FILE_EXTRACTION_CONFIG: Dict[str, Dict[str, str]] = {
 
 
 def get_extractable_file_extensions() -> Set[str]:
-    return set(FILE_EXTRACTION_CONFIG.keys())
+    return set(_FILE_EXTRACTION_CONFIG.keys())
 
 
 def get_string_of_extractable_file_extensions(extension_quote: str = '"', separator: str = ", ") -> str:
-    return separator.join([extension_quote + ext + extension_quote for ext in get_extractable_file_extensions()])
+    return utils.concat_set_of_options(options=get_readable_file_extensions(),
+                                       option_quote=extension_quote,
+                                       separator=separator)
 
 
 def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
@@ -120,7 +122,7 @@ def extract_file_if_possible(filename: Optional[str],
         logger.debug("Cannot extract file '%s', unknown extension" % extracted_filename)
         return filename
 
-    extraction_command = FILE_EXTRACTION_CONFIG[file_ext]["command"] % filename
+    extraction_command = _FILE_EXTRACTION_CONFIG[file_ext]["command"] % filename
 
     if skip_existing and os.path.isfile(extracted_filename):
         logger.info('Skipping extraction, because "%s" already exists' % extracted_filename)
@@ -267,42 +269,67 @@ def get_thermo_raw_file_parser_output_formats() -> Set[str]:
     return set(_THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS.keys())
 
 
-def convert_raw_file_to_mgf(filename: Optional[str],
-                            skip_existing: bool = True,
-                            thermo_docker_container_name: str = "thermorawfileparser",
-                            thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f 0 -i %s",  # TODO find correct exec command
-                            logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = '"', separator: str = ", ") -> str:
+    return utils.concat_set_of_options(options=get_thermo_raw_file_parser_output_formats(),
+                                       option_quote=format_quote,
+                                       separator=separator)
+
+
+def convert_raw_file(filename: Optional[str],
+                     output_format: str = "mgf",
+                     skip_existing: bool = True,
+                     thermo_docker_container_name: str = "thermorawfileparser",
+                     thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'",
+                     # TODO find correct exec command
+                     logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+    logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
+                       "Invalid output format '%s'. Currently allowed formats are: [%s]"
+                       % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
+
     if filename is None:
         return None
 
-    converted_filename, file_ext = separate_extension(filename=filename.lower(),
-                                                      extensions=set("raw"))
+    base_filename, file_ext = separate_extension(filename=filename,
+                                                 extensions=set("raw"))
     if len(file_ext) == 0:
-        logger.debug("Cannot convert file '%s', unknown extension" % converted_filename)
-        return filename
+        logger.debug("Cannot convert file '%s', unknown extension" % filename)
+        return None
+
+    converted_filename = base_filename + "." + output_format
 
     if skip_existing and os.path.isfile(converted_filename):
-        logger.info('Skipping extraction, because "%s" already exists' % converted_filename)
+        logger.info('Skipping conversion, because "%s" already exists' % converted_filename)
         return converted_filename
 
     logger.assert_true(utils.is_docker_container_running(thermo_docker_container_name),
                        "There is no running ThermoRawFileParser Docker container with the name " +
                        thermo_docker_container_name)
 
-    command = thermo_exec_command % (thermo_docker_container_name, filename)
+    output_format_id = _THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS[output_format]
 
-    logger.info("Converting file using '%s'" % command)
+    command = thermo_exec_command % (thermo_docker_container_name, output_format_id, filename)
+
+    logger.debug("Converting file using command '%s'" % command)
     return_code = os.system(command)
     if return_code == 0:
-        logger.info("Converted file")
+        logger.info("Converted file " + filename)
+        return converted_filename
     else:
         logger.warning('Failed converting file "%s" (return code = %d)' % (filename, return_code))
+        return None
 
-    return converted_filename
 
-
-def convert_raw_files_to_mgf(filenames: List[Optional[str]],
-                             skip_existing: bool = True,
-                             logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
+def convert_raw_files(filenames: List[Optional[str]],
+                      output_format: str = "mgf",
+                      skip_existing: bool = True,
+                      thermo_docker_container_name: str = "thermorawfileparser",
+                      thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'",
+                      # TODO find correct exec command
+                      logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    return [convert_raw_file(filename=filename,
+                             output_format=output_format,
+                             skip_existing=skip_existing,
+                             thermo_docker_container_name=thermo_docker_container_name,
+                             thermo_exec_command=thermo_exec_command,
+                             logger=logger)
             for filename in filenames]

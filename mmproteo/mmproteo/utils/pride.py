@@ -6,7 +6,7 @@ import json
 import pandas as pd
 from requests import Response
 
-from mmproteo.utils import log, download as dl
+from mmproteo.utils import log, download as dl, utils
 from mmproteo.utils.formats import filter_files_df
 from mmproteo.utils.visualization import pretty_print_json
 
@@ -144,7 +144,9 @@ DEFAULT_PRIDE_API_VERSIONS = ["2", "1"]
 
 
 def get_string_of_pride_api_versions(extension_quote: str = '"', separator: str = ", ") -> str:
-    return separator.join([extension_quote + version + extension_quote for version in DEFAULT_PRIDE_API_VERSIONS])
+    return utils.concat_set_of_options(options=DEFAULT_PRIDE_API_VERSIONS,
+                                       option_quote=extension_quote,
+                                       separator=separator)
 
 
 def get_project_summary(project_name: str,
