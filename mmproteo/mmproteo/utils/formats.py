@@ -375,4 +375,10 @@ def convert_mgf_file_to_parquet(filename: Optional[str],
         return None
 
 
-
+def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
+                                 skip_existing: bool = Config.default_skip_existing,
+                                 logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    return [convert_mgf_file_to_parquet(filename=filename,
+                                        skip_existing=skip_existing,
+                                        logger=logger)
+            for filename in filenames]

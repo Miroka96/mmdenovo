@@ -110,6 +110,8 @@ def _run_convertraw(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> No
             files += config.processed_files[config.default_downloaded_files_column]
         if config.default_extracted_files_column in config.processed_files.columns:
             files += config.processed_files[config.default_extracted_files_column]
+
+        files = list(set(files))
     if len(files) == 0:
         paths_in_storage_dir = [os.path.join(config.storage_dir, file) for file in os.listdir(config.storage_dir)]
         files = [path for path in paths_in_storage_dir if os.path.isfile(path)]
@@ -146,7 +148,23 @@ def _validate_convertraw(config: Config, logger: log.Logger = log.DUMMY_LOGGER) 
 
 
 def _run_mgf2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    pass
+    files = []
+    if config.processed_files is not None:
+        if config.default_downloaded_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_downloaded_files_column]
+        if config.default_extracted_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_extracted_files_column]
+        if config.default_converted_mgf_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_converted_mgf_files_column]
+        files = list(set(files))
+
+    if len(files) == 0:
+        paths_in_storage_dir = [os.path.join(config.storage_dir, file) for file in os.listdir(config.storage_dir)]
+        files = [path for path in paths_in_storage_dir if os.path.isfile(path)]
+
+    formats.convert_mgf_files_to_parquet(filenames=files,
+                                         skip_existing=config.skip_existing,
+                                         logger=logger)
 
 
 def _validate_mgf2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
