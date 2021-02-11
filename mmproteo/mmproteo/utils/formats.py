@@ -345,3 +345,34 @@ def convert_raw_files(filenames: List[Optional[str]],
                              thermo_exec_command=thermo_exec_command,
                              logger=logger)
             for filename in filenames]
+
+
+def convert_mgf_file_to_parquet(filename: Optional[str],
+                                skip_existing: bool = Config.default_skip_existing,
+                                logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+    if filename is None:
+        return None
+
+    base_filename, file_ext = separate_extension(filename=filename,
+                                                 extensions=set("mgf"))
+    if len(file_ext) == 0:
+        logger.debug("Cannot convert file '%s', unknown extension" % filename)
+        return None
+
+    converted_filename = base_filename + ".parquet"
+
+    if skip_existing and os.path.isfile(converted_filename):
+        logger.info('Skipping conversion, because "%s" already exists' % converted_filename)
+        return converted_filename
+
+    try:
+        df = read_mgf(filename=filename, logger=logger)
+        df.to_parquet(path=converted_filename)
+        logger.info("Converted file " + filename)
+        return converted_filename
+    except Exception as e:
+        logger.warning('Failed converting file "%s" (%s)' % (filename, e))
+        return None
+
+
+

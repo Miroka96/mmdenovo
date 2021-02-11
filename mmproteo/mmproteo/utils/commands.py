@@ -104,13 +104,36 @@ def _validate_extract(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> 
 
 
 def _run_convertraw(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    files = []
+    if config.processed_files is not None:
+        if config.default_downloaded_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_downloaded_files_column]
+        if config.default_extracted_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_extracted_files_column]
+    if len(files) == 0:
+        paths_in_storage_dir = [os.path.join(config.storage_dir, file) for file in os.listdir(config.storage_dir)]
+        files = [path for path in paths_in_storage_dir if os.path.isfile(path)]
+
     formats.start_thermo_docker_container(storage_dir=config.storage_dir,
                                           thermo_docker_container_name=Config.default_thermo_docker_container_name,
                                           thermo_docker_image=Config.default_thermo_docker_image,
                                           thermo_start_container_command_template=
                                           Config.default_thermo_start_container_command_template,
                                           logger=logger)
-    formats.convert_raw_files() # TODO
+
+    converted_files = formats.convert_raw_files(filenames=files,
+                                                output_format=Config.default_thermo_output_format,
+                                                skip_existing=config.skip_existing,
+                                                thermo_docker_container_name=Config.default_thermo_docker_container_name,
+                                                thermo_exec_command=Config.default_thermo_exec_command,
+                                                logger=logger)
+
+    result_df = pd.DataFrame(data=converted_files, columns=[config.default_converted_mgf_files_column])
+    if config.processed_files is None:
+        config.processed_files = result_df
+    else:
+        config.processed_files.append(result_df)
+
     formats.stop_thermo_docker_container(
         thermo_docker_container_name=Config.default_thermo_docker_container_name,
         thermo_stop_container_command_template=Config.default_thermo_stop_container_command_template,
