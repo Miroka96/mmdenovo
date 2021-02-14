@@ -3,7 +3,9 @@ from typing import Optional, List
 
 import pandas as pd
 from mmproteo.utils import log
-from mmproteo.__init__ import __version__
+from mmproteo._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
 
 
 class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
