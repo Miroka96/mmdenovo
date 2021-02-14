@@ -49,4 +49,7 @@ def print_df(df: pd.DataFrame,
 def pretty_print_json(dic: Optional[dict]) -> str:
     if dic is None:
         return ""
-    return json.dumps(dic, indent=4)
+    try:
+        return json.dumps(dic, indent=4)
+    except TypeError:
+        return str(dic)

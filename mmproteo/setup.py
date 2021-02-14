@@ -1,5 +1,4 @@
 import os
-import re
 from setuptools import setup, find_packages
 import versioneer
 
@@ -28,12 +27,13 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        "requests>=2.22.0",
+        "requests~=2.22.0",
         "pandas~=1.1.3",
-        "pyteomics>=4.4.0",
+        "pyteomics~=4.4.1",
         "wget>=3.2",
         "pyarrow>=2.0.0",
         "lxml>=4.5.0",
+        "numpy~=1.17.4"
     ],
     cmdclass=versioneer.get_cmdclass(),
 )

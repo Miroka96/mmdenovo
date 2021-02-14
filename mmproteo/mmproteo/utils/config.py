@@ -48,6 +48,8 @@ class Config:
     default_filter_sort: bool = True
     default_filter_drop_duplicates: bool = True
     default_count_failed_files: bool = False
+    default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
+    default_mzid_key_columns: List[str] = ['name', 'spectrumID']
 
     def __init__(self):
         self.pride_project: Optional[str] = None

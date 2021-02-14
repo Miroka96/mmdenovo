@@ -1,28 +1,25 @@
 import time
 from typing import Optional, Set, Callable, Union, Any, Dict, List
 
-from pyteomics import mgf, mzid
+from pyteomics import mgf, mzid, mzml
 import pandas as pd
 import os
 
 from pyteomics.mgf import MGFBase
 from pyteomics.mzid import MzIdentML
+from pyteomics.mzml import MzML
 
 from mmproteo.utils import log, utils, visualization
 from mmproteo.utils.config import Config
 
 
-def iter_entries(iterator: Union[MGFBase, MzIdentML], logger: log.Logger = log.DUMMY_LOGGER) -> List[Dict[str, Any]]:
-    logger.debug(type(iterator))
+def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DUMMY_LOGGER) \
+        -> List[Dict[str, Any]]:
+    logger.debug("Iterator type = " + str(type(iterator)))
     entries = list(iterator)
     logger.debug("Length: %d" % len(entries))
     if len(entries) > 0:
-        logger.debug("Example:")
-        logger.debug()
-        try:
-            logger.debug(visualization.pretty_print_json(entries[0]))
-        except TypeError:
-            logger.debug(entries[0])
+        logger.debug("Example:\n" + visualization.pretty_print_json(entries[0]))
     return entries
 
 
@@ -32,25 +29,15 @@ def read_mgf(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFra
     return pd.DataFrame(data=extracted_entries)
 
 
-def extract_features_from_mzid_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
-    result = utils.flatten_dict(entry)
-
-    try:
-        utils.flatten_dict(result.pop('SpectrumIdentificationItem')[0], result)
-    except KeyError:
-        pass
-
-    try:
-        utils.flatten_dict(result.pop('PeptideEvidenceRef')[0], result)
-    except KeyError:
-        pass
-
-    return result
-
-
 def read_mzid(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mzid.read(filename), logger=logger)
-    extracted_entries = [extract_features_from_mzid_entry(entry) for entry in entries]
+    extracted_entries = [utils.flatten_dict(entry) for entry in entries]
+    return pd.DataFrame(data=extracted_entries)
+
+
+def read_mzml(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+    entries = iter_entries(mzml.read(filename), logger=logger)
+    extracted_entries = [utils.flatten_dict(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
@@ -61,6 +48,7 @@ def read_parquet(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.Dat
 _FILE_READING_CONFIG: Dict[str, Callable[[str, log.Logger], pd.DataFrame]] = {
     "mgf": read_mgf,
     "mzid": read_mzid,
+    "mzml": read_mzml,
     "parquet": read_parquet,
 }
 
@@ -69,15 +57,25 @@ def get_readable_file_extensions() -> Set[str]:
     return set(_FILE_READING_CONFIG.keys())
 
 
-def read(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+def read(filename: str, filename_col: Optional[str] = "%s_filename", logger: log.Logger = log.DUMMY_LOGGER) \
+        -> pd.DataFrame:
     _, ext = separate_extension(filename=filename, extensions=get_readable_file_extensions())
 
     if len(ext) > 0:
         logger.debug("Started reading %s file '%s'" % (ext, filename))
         df = _FILE_READING_CONFIG[ext](filename, logger)
-        logger.debug("Finished reading %s file '%s'" % (ext, filename))
+        logger.info("Finished reading %s file '%s'" % (ext, filename))
     else:
         raise NotImplementedError
+    if filename_col is not None:
+        if "%s" in filename_col:
+            col = filename_col % ext
+        else:
+            col = filename_col
+        if col in df.columns:
+            logger.warning("'%s' already exists in DataFrame columns. Please choose a different column name.")
+        else:
+            df[col] = filename.split(os.sep)[-1]
     return df
 
 
@@ -382,3 +380,57 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                         skip_existing=skip_existing,
                                         logger=logger)
             for filename in filenames]
+
+
+def merge_mzml_and_mzid_dfs(mzml_df: pd.DataFrame,
+                            mzid_df: pd.DataFrame,
+                            mzml_key_columns: List[str] = None,
+                            mzid_key_columns: List[str] = None,
+                            logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+    if mzml_key_columns is None:
+        mzml_key_columns = Config.default_mzml_key_columns
+    if mzid_key_columns is None:
+        mzid_key_columns = Config.default_mzid_key_columns
+
+    input_length = min(len(mzml_df), len(mzid_df))
+
+    logger.debug("Started merging MzML and MzID dataframes")
+    merged_df = mzml_df.merge(right=mzid_df,
+                              how='inner',
+                              left_on=mzml_key_columns,
+                              right_on=mzid_key_columns)
+    output_length = len(merged_df)
+    unmatched_rows = input_length - output_length
+    if unmatched_rows < 0:
+        if logger.is_verbose():
+            unique_mzml_length = len(mzml_df.drop_duplicates(inplace=False, subset=mzml_key_columns))
+            unique_mzid_length = len(mzid_df.drop_duplicates(inplace=False, subset=mzid_key_columns))
+            duplicate_mzml_rows = len(mzml_df) - unique_mzml_length
+            duplicate_mzid_rows = len(mzid_df) - unique_mzid_length
+            logger.debug("Duplicate MzML rows = %d" % duplicate_mzml_rows)
+            logger.debug("Duplicate MzID rows = %d" % duplicate_mzid_rows)
+        logger.warning("The key columns were no real key columns, because duplicates were found.")
+
+    logger.info("Finished merging MzML and MzID dataframes and matched %d x %d -> %d rows" %
+                (len(mzml_df), len(mzid_df), output_length))
+    return merged_df
+
+
+def merge_mzml_and_mzid_files(mzml_filename: str,
+                              mzid_filename: str,
+                              mzml_key_columns: List[str] = None,
+                              mzid_key_columns: List[str] = None,
+                              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+    if mzml_key_columns is None:
+        mzml_key_columns = Config.default_mzml_key_columns
+    if mzid_key_columns is None:
+        mzid_key_columns = Config.default_mzid_key_columns
+
+    mzml_df = read(filename=mzml_filename, logger=logger)
+    mzid_df = read(filename=mzid_filename, logger=logger)
+
+    return merge_mzml_and_mzid_dfs(mzml_df=mzml_df,
+                                   mzid_df=mzid_df,
+                                   mzml_key_columns=mzml_key_columns,
+                                   mzid_key_columns=mzid_key_columns,
+                                   logger=logger)
