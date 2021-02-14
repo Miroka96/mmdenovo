@@ -219,7 +219,7 @@ _COMMAND_DISPATCHER: Dict[str, Dict[str, Union[Callable[[Config, log.Logger], No
         "handler": _run_mz2parquet,
         "validator": _validate_mz2parquet,
         "description": "merge and convert all downloaded or extracted mzid and mzml files into parquet format"
-                       ", or, if no files were previously processed, merge and convert the files in the data directory."
+                       " or, if no files were previously processed, merge and convert the files in the data directory."
     }
 }
 
