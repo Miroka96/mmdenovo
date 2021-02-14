@@ -172,7 +172,23 @@ def _validate_mgf2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER)
 
 
 def _run_mz2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    pass
+    files = []
+    if config.processed_files is not None:
+        if config.default_downloaded_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_downloaded_files_column]
+        if config.default_extracted_files_column in config.processed_files.columns:
+            files += config.processed_files[config.default_extracted_files_column]
+
+        files = list(set(files))
+
+    if len(files) == 0:
+        paths_in_storage_dir = [os.path.join(config.storage_dir, file) for file in os.listdir(config.storage_dir)]
+        files = [path for path in paths_in_storage_dir if os.path.isfile(path)]
+
+    formats.merge_mzml_and_mzid_files_to_parquet(filenames=files,
+                                                 skip_existing=config.skip_existing,
+                                                 max_num_files=config.max_num_files,
+                                                 logger=logger)
 
 
 def _validate_mz2parquet(config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
@@ -249,11 +265,18 @@ def _get_command_config(command: str):
 def dispatch_commands(config: Config, logger: log.Logger = log.DUMMY_LOGGER):
     command_configs = [_get_command_config(command) for command in config.commands]
 
-    try:
-        for command_config in command_configs:
+    for command_config in command_configs:
+        try:
             command_config["validator"](config, logger)
-    except Exception as e:
-        logger.warning(str(e))
+        except log.LoggedWarningException:
+            pass
+        except log.LoggedErrorException:
+            return
 
     for command_config in command_configs:
-        command_config["handler"](config, logger)
+        try:
+            command_config["handler"](config, logger)
+        except log.LoggedWarningException:
+            pass
+        except log.LoggedErrorException:
+            return

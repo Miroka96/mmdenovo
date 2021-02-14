@@ -426,7 +426,7 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
     if mzid_key_columns is None:
         mzid_key_columns = Config.default_mzid_key_columns
 
-    logger.debug("Started merging MzML file '%s' and MzID file '%s'" % (mzml_filename, mzid_filename))
+    logger.debug("Started Merge: '%s' + '%s' -> dataframe" % (mzml_filename, mzid_filename))
     mzml_df = read(filename=mzml_filename, logger=logger)
     mzid_df = read(filename=mzid_filename, logger=logger)
 
@@ -435,12 +435,13 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
                                         mzml_key_columns=mzml_key_columns,
                                         mzid_key_columns=mzid_key_columns,
                                         logger=logger)
-    logger.info("Finished merging MzML file '%s' and MzID file '%s' to dataframe" % (mzml_filename, mzid_filename))
+    logger.debug("Finished Merge: '%s' + '%s' -> dataframe" % (mzml_filename, mzid_filename))
     return merged_df
 
 
 def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          skip_existing: bool = Config.default_skip_existing,
+                                         max_num_files: Optional[int] = None,
                                          mzml_key_columns: Optional[List[str]] = None,
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
@@ -451,7 +452,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
     filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if
                                 len(ext) > 0]
     if len(filenames_and_extensions) < 2:
-        logger.warning("No MzML and MzID files left to merge")
+        logger.warning("No MzML and MzID files available for merging")
         return []
     filenames_and_extensions = sorted(filenames_and_extensions)
 
@@ -460,6 +461,9 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
 
     last_filename, (last_filename_prefix, last_extension) = filenames_and_extensions[0]
     for filename, (filename_prefix, extension) in filenames_and_extensions[1:]:
+        if max_num_files is not None and 0 < max_num_files <= len(parquet_files):
+            break
+
         if last_filename is not None and extension != last_extension:
             common_filename_prefix_length = len(os.path.commonprefix([filename_prefix, last_filename_prefix]))
             required_filename_prefix_length = min(len(filename_prefix),
@@ -476,10 +480,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                 target_filename = filename[:common_filename_prefix_length] + target_filename_postfix
                 parquet_files.append(target_filename)
 
-                if skip_existing and os.path.exists(target_filename):
-                    logger.info("Skipping merging into '%s', because this file already exists" % target_filename)
-                else:
-                    merge_jobs.append((mzml_filename, mzid_filename, target_filename))
+                merge_jobs.append((mzml_filename, mzid_filename, target_filename))
 
                 filename = None  # skip next iteration to prevent merging the same file with multiple others
         last_filename = filename
@@ -487,12 +488,20 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
         last_extension = extension
 
     for i, (mzml_filename, mzid_filename, target_filename) in enumerate(merge_jobs):
+        if skip_existing and os.path.exists(target_filename):
+            logger.info("Skipping Merge %d/%d: '%s' + '%s' -> '%s' already exists" %
+                        (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
+            continue
+
+        logger.info("Started Merge %d/%d: '%s' + '%s' -> '%s'" %
+                    (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
         merged_df = merge_mzml_and_mzid_files(mzml_filename=mzml_filename,
                                               mzid_filename=mzid_filename,
                                               mzml_key_columns=mzml_key_columns,
                                               mzid_key_columns=mzid_key_columns,
                                               logger=logger)
         merged_df.to_parquet(path=target_filename)
-        logger.info("Stored merged dataframe %d / %d as '%s'" % (i+1, len(merge_jobs), target_filename))
+        logger.info("Finished Merge %d/%d: '%s' + '%s' -> '%s'" %
+                    (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
 
     return parquet_files

@@ -8,6 +8,16 @@ LOG_FORMAT: str = '%(asctime)s - %(name)s: %(message)s'
 DEFAULT_LOG_SUFFIX: str = '.log'
 
 
+class LoggedWarningException(Exception):
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
+
+class LoggedErrorException(Exception):
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
+
 class Logger:
     def __init__(self,
                  logger: Optional[logging.Logger],
@@ -36,7 +46,7 @@ class Logger:
             print("ERROR: " + msg)
         if self.terminate_process:
             sys.exit(1)
-        raise Exception(msg)
+        raise LoggedErrorException(msg)
 
     def warning(self, msg: str = "") -> None:
         if self.logger is not None:
@@ -47,7 +57,7 @@ class Logger:
             if self.terminate_process:
                 self.info("Shutting down because of fail-early configuration")
                 sys.exit(1)
-            raise Exception(msg)
+            raise LoggedWarningException(msg)
 
     def assert_true(self, condition: bool, error_msg: str) -> None:
         if not condition:
