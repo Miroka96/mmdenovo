@@ -62,7 +62,6 @@ class Config:
         self.log_to_stdout: Optional[bool] = None
         self.valid_file_extensions: Optional[List[str]] = None
         self.skip_existing: Optional[bool] = None
-        self.extract: Optional[bool] = None
         self.verbose: Optional[bool] = None
         self.shown_columns: Optional[List[str]] = None
         self.commands: Optional[List[str]] = None
@@ -73,7 +72,7 @@ class Config:
         self.processed_files: Optional[pd.DataFrame] = None
 
     def parse_arguments(self) -> None:
-        from mmproteo.utils import commands, formats, pride, utils
+        from mmproteo.utils import commands, pride, utils
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
 
         parser.add_argument("command",
@@ -120,10 +119,6 @@ class Config:
         parser.add_argument("-e", "--no-skip-existing",
                             action="store_true",
                             help="Do not skip existing files.")
-        parser.add_argument("-x", "--no-extract",
-                            action="store_true",
-                            help="Do not try to extract downloaded files. Supported formats: [%s]" %
-                                 formats.get_string_of_extractable_file_extensions())
         # store_true turns "verbose" into a flag:
         # The existence of "verbose" equals True, the lack of existence equals False
         parser.add_argument("-v", "--verbose",
@@ -159,7 +154,6 @@ class Config:
         self.log_to_stdout = args.log_to_stdout
         self.valid_file_extensions = args.valid_file_extensions
         self.skip_existing = (not args.no_skip_existing)
-        self.extract = (not args.no_extract)
         self.verbose = args.verbose
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
@@ -178,4 +172,3 @@ class Config:
     def check(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
         from mmproteo.utils import utils
         utils.ensure_dir_exists(self.storage_dir, logger=logger)
-

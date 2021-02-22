@@ -4,6 +4,7 @@ from typing import Optional, List, Set, Dict
 import requests
 import json
 import pandas as pd
+from mmproteo.utils.config import Config
 from requests import Response
 
 from mmproteo.utils import log, download as dl, utils
@@ -197,14 +198,12 @@ def get_project_files(project_name: str,
 def download(project_name: str,
              valid_file_extensions: Optional[Set[str]] = None,
              max_num_files: Optional[int] = None,
-             download_dir: str = "download",
-             skip_existing: bool = True,
-             extract: bool = False,
-             count_failed_files: bool = False,
-             file_name_column: str = "fileName",
-             download_link_column: str = 'downloadLink',
-             downloaded_files_column: str = 'downloaded_files',
-             extracted_files_column: str = 'extracted_files',
+             download_dir: str = Config.default_storage_dir,
+             skip_existing: bool = Config.default_skip_existing,
+             count_failed_files: bool = Config.default_count_failed_files,
+             file_name_column: str = Config.default_file_name_column,
+             download_link_column: str = Config.default_download_link_column,
+             downloaded_files_column: str = Config.default_downloaded_files_column,
              api_versions: List[str] = None,
              logger: log.Logger = log.DUMMY_LOGGER) \
         -> Optional[pd.DataFrame]:
@@ -216,12 +215,10 @@ def download(project_name: str,
                        max_num_files=max_num_files,
                        download_dir=download_dir,
                        skip_existing=skip_existing,
-                       extract=extract,
                        count_failed_files=count_failed_files,
                        file_name_column=file_name_column,
                        download_link_column=download_link_column,
                        downloaded_files_column=downloaded_files_column,
-                       extracted_files_column=extracted_files_column,
                        logger=logger)
 
 

@@ -27,10 +27,10 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        "requests~=2.22.0",
+        "requests",
         "pandas~=1.1.3",
         "pyteomics~=4.4.1",
-        "wget>=3.2",
+        "wget",
         "pyarrow>=2.0.0",
         "lxml>=4.5.0",
         "numpy~=1.17.4"

@@ -84,12 +84,10 @@ def download(project_files: pd.DataFrame,
              max_num_files: Optional[int] = None,
              download_dir: str = Config.default_storage_dir,
              skip_existing: bool = Config.default_skip_existing,
-             extract: bool = False,  # TODO remove from download command
              count_failed_files: bool = Config.default_count_failed_files,
              file_name_column: str = Config.default_file_name_column,
              download_link_column: str = Config.default_download_link_column,
              downloaded_files_column: str = Config.default_downloaded_files_column,
-             extracted_files_column: str = Config.default_extracted_files_column,
              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
     filtered_files = formats.filter_files_df(files_df=project_files,
                                              file_name_column=file_name_column,
@@ -107,12 +105,6 @@ def download(project_files: pd.DataFrame,
                                                              skip_existing=skip_existing,
                                                              count_failed_files=count_failed_files,
                                                              logger=logger)
-
-    if extract:
-        filtered_files[extracted_files_column] = formats.extract_files(
-            filenames=filtered_files[downloaded_files_column],
-            skip_existing=skip_existing,
-            logger=logger)
 
     os.chdir(initial_directory)
     return filtered_files

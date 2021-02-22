@@ -1,7 +1,8 @@
 import os
 from mmproteo.utils import log
-from typing import List, Hashable, Iterable, Union, Any
+from typing import List, Hashable, Iterable, Union, Any, Optional
 import numpy as np
+import pandas as pd
 
 
 def concat_set_of_options(options: Iterable[str], option_quote: str = '"', separator: str = ", ") -> str:
@@ -95,6 +96,27 @@ def flatten_dict(input_dict: dict,
     return result_dict
 
 
-def is_docker_container_running(container_name: str) -> bool:
-    return_code = os.system("docker container inspect -f '{{.State.Status}}' " + container_name)
+def is_docker_container_running(container_name: str,
+                                docker_inspect_container_command_template: str =
+                                "docker container inspect -f '{{.State.Status}}' {container_name}") -> bool:
+    return_code = os.system(docker_inspect_container_command_template.format(container_name=container_name))
     return return_code == 0
+
+
+def merge_column_values(df: Optional[pd.DataFrame], columns: List[str]) -> List[str]:
+    if df is None:
+        return list()
+
+    values = set()
+
+    for column in columns:
+        if column in df.columns:
+            values += df[column]
+
+    return list(values)
+
+
+def list_files_in_directory(directory_path: str) -> List[str]:
+    paths_in_dir = [os.path.join(directory_path, element) for element in os.listdir(directory_path)]
+    file_paths = [path for path in paths_in_dir if os.path.isfile(path)]
+    return file_paths
