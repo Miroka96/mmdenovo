@@ -70,6 +70,7 @@ class Config:
 
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
+        self.project_files: Optional[pd.DataFrame] = None
 
     def parse_arguments(self) -> None:
         from mmproteo.utils import commands, pride, utils
@@ -77,11 +78,11 @@ class Config:
 
         parser.add_argument("command",
                             nargs='+',
-                            choices=commands.get_command_names(),
+                            choices=commands.DISPATCHER.get_command_names(),
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.\n" +
-                                 commands.get_command_descriptions_str())
+                                 commands.DISPATCHER.get_command_descriptions_str())
         parser.add_argument("-p", Config._pride_project_str,
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
@@ -132,7 +133,7 @@ class Config:
                             version='%(prog)s ' + __version__,
                             help="show the version of this software")
         parser.add_argument('-i', '--pride-version',
-                            choices=list(pride.PRIDE_APIS.keys()),
+                            choices=pride.get_pride_api_versions(),
                             action="append",
                             default=[],
                             help="an API version for the PRIDE interactions. Only the specified versions will be used. "

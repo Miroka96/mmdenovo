@@ -42,7 +42,7 @@ def main(config: Config = None, logger: log.Logger = None):
 
     config.storage_dir = _HERE
 
-    commands.dispatch_commands(config=config, logger=logger)
+    commands.DISPATCHER.dispatch_commands(config=config, logger=logger)
 
 
 if __name__ == '__main__':

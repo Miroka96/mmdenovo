@@ -1,6 +1,6 @@
 mmproteo~=0.3.0
 pytest~=6.2.2
-sphinx==3.4.3
+sphinx==3.5.1
 versioneer==0.19
 pandas~=1.2.2
 requests~=2.25.1

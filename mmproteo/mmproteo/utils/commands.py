@@ -1,4 +1,4 @@
-from typing import Dict, Set
+from typing import Dict, Set, List
 
 import pandas as pd
 from mmproteo.utils import log, pride, visualization, formats, utils
@@ -29,6 +29,7 @@ class DownloadCommand(AbstractCommand):
 
     def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
         downloaded_files = pride.download(project_name=config.pride_project,
+                                          project_files=config.project_files,
                                           valid_file_extensions=config.valid_file_extensions,
                                           max_num_files=config.max_num_files,
                                           download_dir=config.storage_dir,
@@ -70,7 +71,7 @@ class InfoCommand(AbstractCommand):
         return "request project information for a given project"
 
     def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-        project_info = pride.info(project_name=config.pride_project, api_versions=config.pride_versions, logger=logger)
+        project_info = pride.get_project_info(project_name=config.pride_project, api_versions=config.pride_versions, logger=logger)
         if project_info is None:
             return
         print(project_info)
@@ -88,15 +89,20 @@ class ListCommand(AbstractCommand):
         return "list files and their attributes in a given project"
 
     def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-        project_files = pride.list_files(project_name=config.pride_project,
-                                         api_versions=config.pride_versions,
-                                         file_extensions=config.valid_file_extensions,
-                                         logger=logger)
-        # TODO cache project_files df for later downloading
+        if config.project_files is None:
+            config.project_files = pride.get_project_files(project_name=config.pride_project,
+                                                           api_versions=config.pride_versions,
+                                                           logger=logger)
 
-        if project_files is None:
+        if config.project_files is None:
             return
-        visualization.print_df(df=project_files,
+
+        filtered_files = formats.filter_files_df(files_df=config.project_files,
+                                                 file_extensions=config.valid_file_extensions,
+                                                 sort=True,
+                                                 logger=logger)
+
+        visualization.print_df(df=filtered_files,
                                max_num_files=config.max_num_files,
                                shown_columns=config.shown_columns,
                                urlencode_columns=[config.default_download_link_column],
@@ -240,8 +246,8 @@ class CommandDispatcher:
             raise ValueError("Command is already registered")
         self.__commands[command.get_command()] = command
 
-    def get_command_names(self) -> Set[str]:
-        return set(self.__commands.keys())
+    def get_command_names(self) -> List[str]:
+        return sorted(self.__commands.keys())
 
     @staticmethod
     def _pad_command(command: str, width: int) -> str:

@@ -28,12 +28,12 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         "requests",
-        "pandas~=1.1.3",
-        "pyteomics~=4.4.1",
+        "pandas",
+        "pyteomics",
         "wget",
-        "pyarrow>=2.0.0",
-        "lxml>=4.5.0",
-        "numpy~=1.17.4"
+        "pyarrow",
+        "lxml",
+        "numpy"
     ],
     cmdclass=versioneer.get_cmdclass(),
 )

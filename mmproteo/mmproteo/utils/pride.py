@@ -1,63 +1,13 @@
+import json
 from json import JSONDecodeError
 from typing import Optional, List, Set, Dict
 
-import requests
-import json
 import pandas as pd
-from mmproteo.utils.config import Config
-from requests import Response
-
+import requests
 from mmproteo.utils import log, download as dl, utils
-from mmproteo.utils.formats import filter_files_df
+from mmproteo.utils.config import Config
 from mmproteo.utils.visualization import pretty_print_json
-
-
-# HTTP 204 - No Content
-def _handle_204_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    logger.warning("Repository does not exist")
-
-
-# HTTP 401 - Unauthorized
-def _handle_401_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    message = response_dict.get('message', "?")
-    developer_message = response_dict.get('developerMessage', "?")
-    more_info_url = response_dict.get('moreInfoUrl', "?")
-    logger.warning("%s (%s) -> %s" % (message, developer_message, more_info_url))
-
-
-def _handle_unknown_response(status_code: int, response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    logger.warning("Received unknown response code %d or content" % status_code)
-    logger.debug(pretty_print_json(response_dict))
-
-
-def _handle_non_200_response_codes(response: Optional[Response], logger: log.Logger = log.DUMMY_LOGGER) -> None:
-    if response is None:
-        return None
-    if response.status_code == 204:
-        return _handle_204_response(logger=logger)
-    try:
-        response_dict = json.loads(response.text)
-    except JSONDecodeError:
-        logger.warning("Received unknown non-JSON response with response code %d" % response.status_code)
-        logger.debug("Response text: '%s'" % response.text)
-        return
-    if response.status_code == 401:
-        return _handle_401_response(response_dict, logger)
-    return _handle_unknown_response(response.status_code, response_dict, logger)
-
-
-def _request_json(url: str, subject_name: str, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
-    logger.info("Requesting %s from %s" % (subject_name, url))
-    response = requests.get(url)
-    logger.debug("Received response from %s with length of %d bytes and status code %d" %
-                 (url, len(response.text), response.status_code))
-
-    if response.status_code == 200:
-        response_dict = json.loads(response.text)
-        return response_dict
-    else:
-        _handle_non_200_response_codes(response, logger)
-        return None
+from requests import Response
 
 
 class AbstractPrideApi:
@@ -70,10 +20,58 @@ class AbstractPrideApi:
 
     def get_project_summary(self, project_name: str) -> Optional[dict]:
         project_summary_link = self.GET_PROJECT_SUMMARY_URL % project_name
-        return _request_json(project_summary_link, "project summary using API version " + self.version, self.logger)
+        return self._request_json(project_summary_link, "project summary using API version " + self.version,
+                                  self.logger)
 
     def get_project_files(self, project_name: str):
         raise NotImplementedError
+
+    @staticmethod
+    # HTTP 204 - No Content
+    def _handle_204_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        logger.warning("Repository does not exist")
+
+    @staticmethod
+    # HTTP 401 - Unauthorized
+    def _handle_401_response(response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        message = response_dict.get('message', "?")
+        developer_message = response_dict.get('developerMessage', "?")
+        more_info_url = response_dict.get('moreInfoUrl', "?")
+        logger.warning("%s (%s) -> %s" % (message, developer_message, more_info_url))
+
+    @staticmethod
+    def _handle_unknown_response(status_code: int, response_dict: dict, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        logger.warning("Received unknown response code %d or content" % status_code)
+        logger.debug(pretty_print_json(response_dict))
+
+    def _handle_non_200_response_codes(self, response: Optional[Response],
+                                       logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        if response is None:
+            return None
+        if response.status_code == 204:
+            return self._handle_204_response(logger=logger)
+        try:
+            response_dict = json.loads(response.text)
+        except JSONDecodeError:
+            logger.warning("Received unknown non-JSON response with response code %d" % response.status_code)
+            logger.debug("Response text: '%s'" % response.text)
+            return
+        if response.status_code == 401:
+            return self._handle_401_response(response_dict, logger)
+        return self._handle_unknown_response(response.status_code, response_dict, logger)
+
+    def _request_json(self, url: str, subject_name: str, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
+        logger.info("Requesting %s from %s" % (subject_name, url))
+        response = requests.get(url)
+        logger.debug("Received response from %s with length of %d bytes and status code %d" %
+                     (url, len(response.text), response.status_code))
+
+        if response.status_code == 200:
+            response_dict = json.loads(response.text)
+            return response_dict
+        else:
+            self._handle_non_200_response_codes(response, logger)
+            return None
 
 
 class PrideApiV1(AbstractPrideApi):
@@ -82,9 +80,9 @@ class PrideApiV1(AbstractPrideApi):
 
     def get_project_files(self, project_name: str) -> Optional[pd.DataFrame]:
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
-        response_dict = _request_json(url=project_files_link,
-                                      subject_name="list of project files using API version " + self.version,
-                                      logger=self.logger)
+        response_dict = self._request_json(url=project_files_link,
+                                           subject_name="list of project files using API version " + self.version,
+                                           logger=self.logger)
         if response_dict is None:
             return None
         try:
@@ -118,11 +116,13 @@ class PrideApiV2(AbstractPrideApi):
                 pass
         return file_entry
 
-    def get_project_files(self, project_name: str) -> Optional[pd.DataFrame]:
+    def get_project_files(self,
+                          project_name: str,
+                          download_link_column: str = Config.default_download_link_column) -> Optional[pd.DataFrame]:
         project_files_link = self.LIST_PROJECT_FILES_URL % project_name
-        response_dict_list = _request_json(url=project_files_link,
-                                           subject_name="list of project files using API version " + self.version,
-                                           logger=self.logger)
+        response_dict_list = self._request_json(url=project_files_link,
+                                                subject_name="list of project files using API version " + self.version,
+                                                logger=self.logger)
         if response_dict_list is None:
             return None
         response_dict_list = [self._format_file_entry(response_dict) for response_dict in response_dict_list]
@@ -132,7 +132,7 @@ class PrideApiV2(AbstractPrideApi):
         except:
             return None
 
-        files_df = files_df.rename(columns={"publicFileLocation.value": "downloadLink"})
+        files_df = files_df.rename(columns={"publicFileLocation.value": download_link_column})
         return files_df
 
 
@@ -144,15 +144,19 @@ PRIDE_APIS = {
 DEFAULT_PRIDE_API_VERSIONS = ["2", "1"]
 
 
+def get_pride_api_versions() -> List[str]:
+    return sorted(PRIDE_APIS.keys())
+
+
 def get_string_of_pride_api_versions(extension_quote: str = '"', separator: str = ", ") -> str:
     return utils.concat_set_of_options(options=DEFAULT_PRIDE_API_VERSIONS,
                                        option_quote=extension_quote,
                                        separator=separator)
 
 
-def get_project_summary(project_name: str,
-                        api_versions: List[str] = None,
-                        logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
+def _query_project_summary(project_name: str,
+                           api_versions: List[str] = None,
+                           logger: log.Logger = log.DUMMY_LOGGER) -> Optional[dict]:
     """Get the project as a json and return it as a dataframe"""
     if api_versions is None or len(api_versions) == 0:
         api_versions = DEFAULT_PRIDE_API_VERSIONS
@@ -169,8 +173,9 @@ def get_project_summary(project_name: str,
     return None
 
 
-def info(project_name: str, api_versions: List[str] = None, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
-    summary_dict = get_project_summary(project_name=project_name, api_versions=api_versions, logger=logger)
+def get_project_info(project_name: str, api_versions: List[str] = None, logger: log.Logger = log.DUMMY_LOGGER) -> \
+Optional[str]:
+    summary_dict = _query_project_summary(project_name=project_name, api_versions=api_versions, logger=logger)
     if summary_dict is None:
         return None
     return pretty_print_json(summary_dict)
@@ -195,7 +200,8 @@ def get_project_files(project_name: str,
     return None
 
 
-def download(project_name: str,
+def download(project_name: Optional[str] = None,
+             project_files: Optional[pd.DataFrame] = None,
              valid_file_extensions: Optional[Set[str]] = None,
              max_num_files: Optional[int] = None,
              download_dir: str = Config.default_storage_dir,
@@ -207,9 +213,16 @@ def download(project_name: str,
              api_versions: List[str] = None,
              logger: log.Logger = log.DUMMY_LOGGER) \
         -> Optional[pd.DataFrame]:
-    project_files = get_project_files(project_name=project_name, api_versions=api_versions, logger=logger)
+    logger.assert_true(condition=(project_name is not None or project_files is not None),
+                       error_msg="either project_name or project_files are required")
+
     if project_files is None:
-        return None
+        project_files = get_project_files(project_name=project_name,
+                                          api_versions=api_versions,
+                                          logger=logger)
+        if project_files is None:
+            return None
+
     return dl.download(project_files=project_files,
                        valid_file_extensions=valid_file_extensions,
                        max_num_files=max_num_files,
@@ -220,13 +233,3 @@ def download(project_name: str,
                        download_link_column=download_link_column,
                        downloaded_files_column=downloaded_files_column,
                        logger=logger)
-
-
-def list_files(project_name: str,
-               api_versions: List[str] = None,
-               file_extensions: Optional[Set[str]] = None,
-               logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
-    project_files = get_project_files(project_name=project_name, api_versions=api_versions, logger=logger)
-    if project_files is None:
-        return None
-    return filter_files_df(files_df=project_files, file_extensions=file_extensions, sort=False, logger=logger)

@@ -162,7 +162,7 @@ def extract_files(filenames: List[Optional[str]],
 
 
 def filter_files_df(files_df: Optional[pd.DataFrame],
-                    file_name_column: str = "fileName",
+                    file_name_column: str = Config.default_file_name_column,
                     file_extensions: Optional[Set[str]] = None,
                     max_num_files: Optional[int] = None,
                     sort: bool = Config.default_filter_sort,

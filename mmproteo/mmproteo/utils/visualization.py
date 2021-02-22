@@ -29,7 +29,7 @@ def print_df(df: pd.DataFrame,
              logger: log.Logger = log.DUMMY_LOGGER):
     df = df.copy()
 
-    if max_num_files is not None and max_num_files != 0:
+    if max_num_files is not None and max_num_files != 0 and max_num_files < len(df):
         df = df[:max_num_files]
         logger.info("Showing only the top %d entries because of the max_num_files parameter" % max_num_files)
     if shown_columns is not None and shown_columns != []:
