@@ -71,7 +71,9 @@ class InfoCommand(AbstractCommand):
         return "request project information for a given project"
 
     def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-        project_info = pride.get_project_info(project_name=config.pride_project, api_versions=config.pride_versions, logger=logger)
+        project_info = pride.get_project_info(project_name=config.pride_project,
+                                              api_versions=config.pride_versions,
+                                              logger=logger)
         if project_info is None:
             return
         print(project_info)

@@ -1,0 +1,86 @@
+usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
+                [--count-failed-files] [-d STORAGE_DIR] [-l LOG_FILE]
+                [--log-to-stdout] [-c SHOWN_COLUMNS]
+                [-t VALID_FILE_EXTENSIONS] [-e] [-v] [-f] [--version]
+                [-i {1,2}]
+                {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
+                [{convertraw,download,extract,info,list,mgf2parquet,mz2parquet} ...]
+
+positional arguments:
+  {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
+                        the list of actions to be performed on the repository.
+                        Every action can only occur once. Duplicates are
+                        dropped after the first occurrence.
+                        convertraw  : convert all downloaded or extracted raw
+                                      files or, if none were downloaded or
+                                      extracted, those raw files in the data
+                                      directory, into the given thermo output
+                                      format using the ThermoRawFileParser
+                        download    : download files from a given project
+                        extract     : extract all downloaded archive files or,
+                                      if none were downloaded, those in the
+                                      data directory. Currently, the following
+                                      archive formats are supported: "mgf",
+                                      "mzid", "mzml", "parquet"
+                        info        : request project information for a given
+                                      project
+                        list        : list files and their attributes in a
+                                      given project
+                        mgf2parquet : convert all downloaded, extracted, or
+                                      converted mgf files into parquet format,
+                                      or, if no files were previously
+                                      processed, convert the mgf files in the
+                                      data directory
+                        mz2parquet  : merge and convert all downloaded or
+                                      extracted mzid and mzml files into
+                                      parquet format or, if no files were
+                                      previously processed, merge and convert
+                                      the files in the data directory.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PRIDE_PROJECT, --pride-project PRIDE_PROJECT
+                        the name of the PRIDE project, e.g. 'PXD010000' from '
+                        https://www.ebi.ac.uk/pride/ws/archive/peptide/list/pr
+                        oject/PXD010000'. For some commands, this parameter is
+                        required. (default: None)
+  -n MAX_NUM_FILES, --max-num-files MAX_NUM_FILES
+                        the maximum number of files to be downloaded. Set it
+                        to '0' to download all files. (default: 0)
+  --count-failed-files  Count failed files and do not just skip them. This is
+                        relevant for the max-num-files parameter. (default:
+                        True)
+  -d STORAGE_DIR, --storage-dir STORAGE_DIR
+                        the name of the directory, in which the downloaded
+                        files and the log file will be stored. (default: .)
+  -l LOG_FILE, --log-file LOG_FILE
+                        the name of the log file, relative to the download
+                        directory. (default: downloader.log)
+  --log-to-stdout       Log to stdout instead of stderr. (default: False)
+  -c SHOWN_COLUMNS, --shown-columns SHOWN_COLUMNS
+                        a list of comma-separated column names. Some commands
+                        show their results as tables, so their output columns
+                        will be limited to those in this list. An empty list
+                        deactivates filtering. Capitalization matters.
+                        (default: )
+  -t VALID_FILE_EXTENSIONS, --valid-file-extensions VALID_FILE_EXTENSIONS
+                        a list of comma-separated allowed file extensions to
+                        filter files for. An empty list deactivates filtering.
+                        Capitalization does not matter. (default: )
+  -e, --no-skip-existing
+                        Do not skip existing files. (default: False)
+  -v, --verbose         Increase output verbosity to debug level. (default:
+                        False)
+  -f, --no-fail-early   Do not fail already on warnings. (default: False)
+  --version             show the version of this software
+  -i {1,2}, --pride-version {1,2}
+                        an API version for the PRIDE interactions. Only the
+                        specified versions will be used. This parameter can be
+                        given multiple times to allow multiple different API
+                        versions, one version per parameter appearance. The
+                        order of occurring API versions will be considered
+                        until the first API request fulfills its job. Every
+                        version should appear at most once. Duplicates are
+                        dropped after the first occurrence. An empty list
+                        (default) uses all api versions in the following
+                        order: ["1", "2"] (default: [])

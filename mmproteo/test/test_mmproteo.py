@@ -2,6 +2,8 @@
 
 import subprocess
 
+DEFAULT_PROJECT = "PXD010000"
+
 
 def _store_command_output(command: str, filename: str, include_stderr: bool = True) -> None:
     system_command = f"{command} > {filename}"
@@ -49,6 +51,45 @@ def test_mmproteo_h_output():
                               filename="resources/mmproteo_h_output.txt")
 
 
+def store_mmproteo_p_info_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} info",
+                          filename="resources/mmproteo_p_info_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_info_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} info",
+                              filename="resources/mmproteo_p_info_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} list",
+                          filename="resources/mmproteo_p_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} list",
+                              filename="resources/mmproteo_p_list_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_n_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -n 10 list",
+                          filename="resources/mmproteo_p_n_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_n_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -n 10 list",
+                              filename="resources/mmproteo_p_n_list_output.txt",
+                              include_stderr=False)
+
+
 if __name__ == '__main__':
     store_mmproteo_output()
     store_mmproteo_h_output()
+    store_mmproteo_p_info_output()
+    store_mmproteo_p_list_output()
+    store_mmproteo_p_n_list_output()

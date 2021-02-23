@@ -105,7 +105,7 @@ class Config:
         parser.add_argument("--log-to-stdout",
                             action="store_true",
                             help="Log to stdout instead of stderr.")
-        parser.add_argument("--shown-columns",
+        parser.add_argument("-c", "--shown-columns",
                             default="",
                             type=lambda s: [col for col in s.split(",") if len(col) > 0],
                             help="a list of comma-separated column names. Some commands show their results as tables, "
