@@ -55,7 +55,7 @@ optional arguments:
                         files and the log file will be stored. (default: .)
   -l LOG_FILE, --log-file LOG_FILE
                         the name of the log file, relative to the download
-                        directory. (default: downloader.log)
+                        directory. (default: mmproteo.log)
   --log-to-stdout       Log to stdout instead of stderr. (default: False)
   -c SHOWN_COLUMNS, --shown-columns SHOWN_COLUMNS
                         a list of comma-separated column names. Some commands

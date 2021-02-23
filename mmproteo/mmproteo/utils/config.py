@@ -28,9 +28,10 @@ class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpForma
 
 
 class Config:
-    _pride_project_str = "--pride-project"
+    _pride_project_parameter_str: str = "--pride-project"
 
-    default_storage_dir = "."
+    default_storage_dir: str = "."
+    default_log_file: str = "mmproteo.log"
     default_file_name_column: str = "fileName"
     default_download_link_column: str = 'downloadLink'
     default_downloaded_files_column: str = 'downloaded_files'
@@ -83,7 +84,7 @@ class Config:
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.\n" +
                                  commands.DISPATCHER.get_command_descriptions_str())
-        parser.add_argument("-p", Config._pride_project_str,
+        parser.add_argument("-p", Config._pride_project_parameter_str,
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
                                  "For some commands, this parameter is required.")
@@ -100,7 +101,7 @@ class Config:
                             help="the name of the directory, in which the downloaded files and the log file will be "
                                  "stored.")
         parser.add_argument("-l", "--log-file",
-                            default="downloader.log",
+                            default=self.default_log_file,
                             help="the name of the log file, relative to the download directory.")
         parser.add_argument("--log-to-stdout",
                             action="store_true",
@@ -163,8 +164,8 @@ class Config:
         self.commands = utils.deduplicate_list(args.command)
 
     def require_pride_project(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
-        logger.assert_true(self.pride_project is not None, Config._pride_project_str + " is missing")
-        logger.assert_true(len(self.pride_project) > 0, Config._pride_project_str + " must not be empty")
+        logger.assert_true(self.pride_project is not None, Config._pride_project_parameter_str + " is missing")
+        logger.assert_true(len(self.pride_project) > 0, Config._pride_project_parameter_str + " must not be empty")
 
     def validate_arguments(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")

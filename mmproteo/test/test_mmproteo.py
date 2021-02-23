@@ -87,9 +87,76 @@ def test_mmproteo_p_n_list_output():
                               include_stderr=False)
 
 
+def store_mmproteo_p_t_mzid_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t mzid list",
+                          filename="resources/mmproteo_p_t_mzid_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_t_mzid_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t mzid list",
+                              filename="resources/mmproteo_p_t_mzid_list_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_t_gz_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz list",
+                          filename="resources/mmproteo_p_t_gz_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_t_gz_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz list",
+                              filename="resources/mmproteo_p_t_gz_list_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_t_gz_mzid_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz,mzid list",
+                          filename="resources/mmproteo_p_t_gz_mzid_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_t_gz_mzid_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz,mzid list",
+                              filename="resources/mmproteo_p_t_gz_mzid_list_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_c_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -c fileName,downloadLink list",
+                          filename="resources/mmproteo_p_c_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_c_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -c fileName,downloadLink list",
+                              filename="resources/mmproteo_p_c_list_output.txt",
+                              include_stderr=False)
+
+
+def store_mmproteo_p_n_t_c_list_output():
+    _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -n 100 -t raw,mzml,gz -c fileName,downloadLink list",
+                          filename="resources/mmproteo_p_n_t_c_list_output.txt",
+                          include_stderr=False)
+
+
+def test_mmproteo_p_n_t_c_list_output():
+    _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -n 100 -t raw,mzml,gz "
+                                      f"-c fileName,downloadLink list",
+                              filename="resources/mmproteo_p_n_t_c_list_output.txt",
+                              include_stderr=False)
+
+
 if __name__ == '__main__':
+    # run this file as script to recreate the expected outputs
     store_mmproteo_output()
     store_mmproteo_h_output()
     store_mmproteo_p_info_output()
     store_mmproteo_p_list_output()
     store_mmproteo_p_n_list_output()
+    store_mmproteo_p_t_mzid_list_output()
+    store_mmproteo_p_t_gz_list_output()
+    store_mmproteo_p_t_gz_mzid_list_output()
+    store_mmproteo_p_c_list_output()
+    store_mmproteo_p_n_t_c_list_output()
