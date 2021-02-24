@@ -473,7 +473,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          mzml_key_columns: Optional[List[str]] = None,
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
-                                         target_filename_postfix: str = "_mzmlid.parquet",
+                                         target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
                                          logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
     filenames_and_extensions = [(filename, separate_extension(filename=filename, extensions={"mzml", "mzid"}))
                                 for filename in filenames if filename is not None]

@@ -7,7 +7,9 @@ from mmproteo.utils import log
 
 
 def concat_set_of_options(options: Iterable[str], option_quote: str = '"', separator: str = ", ") -> str:
-    return separator.join([option_quote + option + option_quote for option in sorted(options)])
+    if type(options) != list:
+        options = sorted(options)
+    return separator.join([option_quote + option + option_quote for option in options])
 
 
 def deduplicate_list(lst: List[Hashable]) -> List[Hashable]:

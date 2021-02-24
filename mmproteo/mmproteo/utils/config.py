@@ -56,6 +56,7 @@ class Config:
     default_count_failed_files: bool = False
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
     default_mzid_key_columns: List[str] = ['name', 'spectrumID']
+    default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
 
     def __init__(self):
         self.pride_project: Optional[str] = None
