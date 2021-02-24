@@ -2,7 +2,7 @@ usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
                 [--count-failed-files] [-d STORAGE_DIR] [-l LOG_FILE]
                 [--log-to-stdout] [-c SHOWN_COLUMNS]
                 [-t VALID_FILE_EXTENSIONS] [-e] [-v] [-f] [--version]
-                [-i {1,2}]
+                [-i {1,2}] [--dummy-logger]
                 {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
                 [{convertraw,download,extract,info,list,mgf2parquet,mz2parquet} ...]
 
@@ -55,7 +55,8 @@ optional arguments:
                         files and the log file will be stored. (default: .)
   -l LOG_FILE, --log-file LOG_FILE
                         the name of the log file, relative to the download
-                        directory. (default: mmproteo.log)
+                        directory. Set it to an empty string ("") to disable
+                        file logging. (default: mmproteo.log)
   --log-to-stdout       Log to stdout instead of stderr. (default: False)
   -c SHOWN_COLUMNS, --shown-columns SHOWN_COLUMNS
                         a list of comma-separated column names. Some commands
@@ -72,7 +73,7 @@ optional arguments:
   -v, --verbose         Increase output verbosity to debug level. (default:
                         False)
   -f, --no-fail-early   Do not fail already on warnings. (default: False)
-  --version             show the version of this software
+  --version             Show the version of this software.
   -i {1,2}, --pride-version {1,2}
                         an API version for the PRIDE interactions. Only the
                         specified versions will be used. This parameter can be
@@ -84,3 +85,5 @@ optional arguments:
                         dropped after the first occurrence. An empty list
                         (default) uses all api versions in the following
                         order: ["1", "2"] (default: [])
+  --dummy-logger        Use a simpler log format and log to stdout. (default:
+                        False)

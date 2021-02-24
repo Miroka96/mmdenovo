@@ -10,13 +10,24 @@ _HERE: str = "."
 
 
 def create_logger(config: Config) -> log.Logger:
+    if config.dummy_logger:
+        return log.DummyLogger(send_welcome=True,
+                               fail_early=config.fail_early,
+                               terminate_process=config.terminate_process,
+                               verbose=config.verbose)
+
     if config.log_to_stdout:
         log_to_std = sys.stdout
     else:
         log_to_std = sys.stderr
 
+    if config.log_file is not None and len(config.log_file) == 0:
+        log_dir = None  # this disables file logging
+    else:
+        log_dir = config.storage_dir
+
     logger = log.create_logger(name=APPLICATION_NAME,
-                               log_dir=config.storage_dir,
+                               log_dir=log_dir,
                                filename=config.log_file,
                                verbose=config.verbose,
                                log_to_std=log_to_std,
@@ -29,20 +40,23 @@ def main(config: Config = None, logger: log.Logger = None):
         config = Config()
         config.parse_arguments()
 
-    config.validate_arguments()
+    try:
+        config.validate_arguments()
 
-    if logger is not None:
-        config.check(logger=logger)
-    else:
-        config.check()
-        logger = create_logger(config)
+        if logger is not None:
+            config.check(logger=logger)
+        else:
+            config.check()
+            logger = create_logger(config)
 
-    if config.storage_dir is not None:
-        os.chdir(config.storage_dir)
+        if config.storage_dir is not None:
+            os.chdir(config.storage_dir)
 
-    config.storage_dir = _HERE
+        config.storage_dir = _HERE
 
-    commands.DISPATCHER.dispatch_commands(config=config, logger=logger)
+        commands.DISPATCHER.dispatch_commands(config=config, logger=logger)
+    except log.LoggedErrorException:
+        return
 
 
 if __name__ == '__main__':

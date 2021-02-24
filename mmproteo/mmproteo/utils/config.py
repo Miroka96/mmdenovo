@@ -1,10 +1,12 @@
 import argparse
-from typing import Optional, List
+from typing import Optional, List, Iterable, Any, Union
 
 import pandas as pd
 from mmproteo.utils import log
 from mmproteo._version import get_versions
+
 __version__ = get_versions()['version']
+
 del get_versions
 
 
@@ -37,6 +39,7 @@ class Config:
     default_downloaded_files_column: str = 'downloaded_files'
     default_extracted_files_column: str = 'extracted_files'
     default_converted_mgf_files_column: str = 'converted_mgf_files'
+    default_mzmlid_parquet_files_column: str = 'converted_mzmlid_parquet_files'
     default_thermo_docker_container_name: str = "thermorawfileparser"
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.2.3--1"
     default_thermo_start_container_command_template: str = \
@@ -56,22 +59,51 @@ class Config:
 
     def __init__(self):
         self.pride_project: Optional[str] = None
-        self.max_num_files: Optional[int] = None
-        self.count_failed_files: Optional[bool] = None
-        self.storage_dir: Optional[str] = None
-        self.log_file: Optional[str] = None
-        self.log_to_stdout: Optional[bool] = None
-        self.valid_file_extensions: Optional[List[str]] = None
-        self.skip_existing: Optional[bool] = None
-        self.verbose: Optional[bool] = None
-        self.shown_columns: Optional[List[str]] = None
+        self.max_num_files: int = 0
+        self.count_failed_files: bool = self.default_count_failed_files
+        self.storage_dir: str = self.default_storage_dir
+        self.log_file: str = self.default_log_file
+        self.log_to_stdout: bool = False
+        self.valid_file_extensions: List[str] = []
+        self.skip_existing: bool = self.default_skip_existing
+        self.verbose: bool = False
+        self.dummy_logger: bool = False
+        self.shown_columns: List[str] = []
         self.commands: Optional[List[str]] = None
-        self.pride_versions: Optional[List[str]] = None
-        self.fail_early: Optional[bool] = None
+        self.pride_versions: List[str] = []
+        self.fail_early: bool = False
+        self.terminate_process: bool = False
 
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
         self.project_files: Optional[pd.DataFrame] = None
+
+    def clear_cache(self):
+        self.processed_files = None
+        self.project_files = None
+
+    def cache(self,
+              data_list: Optional[List[Any]] = None,
+              column_names: Optional[Union[str, List[str]]] = None,
+              data_df: pd.DataFrame = None) -> Optional[pd.DataFrame]:
+        assert (data_list is not None and column_names is not None and data_df is None) \
+               or (data_list is None and column_names is None), \
+               "data_list and column_names must always be given together, but never at the same time as data_df"
+
+        if data_df is None:
+            if len(data_list) == 0:
+                return None
+
+            if type(column_names) == str:
+                column_names = [column_names]
+
+            data_df = pd.DataFrame(data=data_list, columns=column_names)
+
+        if self.processed_files is None:
+            self.processed_files = data_df
+        else:
+            self.processed_files = self.processed_files.append(data_df, ignore_index=True)
+        return data_df
 
     def parse_arguments(self) -> None:
         from mmproteo.utils import commands, pride, utils
@@ -89,7 +121,7 @@ class Config:
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
                                  "For some commands, this parameter is required.")
         parser.add_argument("-n", "--max-num-files",
-                            default=0,
+                            default=self.max_num_files,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
         parser.add_argument("--count-failed-files",
@@ -102,7 +134,8 @@ class Config:
                                  "stored.")
         parser.add_argument("-l", "--log-file",
                             default=self.default_log_file,
-                            help="the name of the log file, relative to the download directory.")
+                            help="the name of the log file, relative to the download directory. "
+                                 "Set it to an empty string (\"\") to disable file logging.")
         parser.add_argument("--log-to-stdout",
                             action="store_true",
                             help="Log to stdout instead of stderr.")
@@ -132,11 +165,11 @@ class Config:
         parser.add_argument('--version',
                             action='version',
                             version='%(prog)s ' + __version__,
-                            help="show the version of this software")
+                            help="Show the version of this software.")
         parser.add_argument('-i', '--pride-version',
                             choices=pride.get_pride_api_versions(),
                             action="append",
-                            default=[],
+                            default=self.pride_versions,
                             help="an API version for the PRIDE interactions. Only the specified versions will be used. "
                                  "This parameter can be given multiple times to allow multiple different "
                                  "API versions, one version per parameter appearance. "
@@ -145,6 +178,9 @@ class Config:
                                  "Duplicates are dropped after the first occurrence. "
                                  "An empty list (default) uses all api versions in the following order: [%s]" %
                                  pride.get_string_of_pride_api_versions())
+        parser.add_argument("--dummy-logger",
+                            action="store_true",
+                            help="Use a simpler log format and log to stdout.")
 
         args = parser.parse_args()
 
@@ -157,6 +193,7 @@ class Config:
         self.valid_file_extensions = args.valid_file_extensions
         self.skip_existing = (not args.no_skip_existing)
         self.verbose = args.verbose
+        self.dummy_logger = args.dummy_logger
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
@@ -169,7 +206,7 @@ class Config:
 
     def validate_arguments(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
-        logger.assert_true(self.log_file is None or len(self.log_file) > 0, "log-file must not be empty")
+        logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
 
     def check(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
         from mmproteo.utils import utils

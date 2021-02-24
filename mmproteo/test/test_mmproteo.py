@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 
 import subprocess
+import time
 
 DEFAULT_PROJECT = "PXD010000"
+FAIR_USE_DELAY_SECONDS = 0.5
 
 
 def _store_command_output(command: str, filename: str, include_stderr: bool = True) -> None:
@@ -26,9 +28,9 @@ def _compare_stdout_with_file(command: str, filename: str, include_stderr: bool 
         file_lines = file.readlines()
     file_lines = [line.rstrip("\n") for line in file_lines]
 
-    assert len(stdout_lines) == len(file_lines)
+    assert len(stdout_lines) == len(file_lines), "outputs do not have the same lengths"
     for received, expected in zip(stdout_lines, file_lines):
-        assert received == expected
+        assert received == expected, "found lines that do not match"
 
 
 def store_mmproteo_output():
@@ -55,90 +57,105 @@ def store_mmproteo_p_info_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} info",
                           filename="resources/mmproteo_p_info_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_info_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} info",
                               filename="resources/mmproteo_p_info_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} list",
                           filename="resources/mmproteo_p_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} list",
                               filename="resources/mmproteo_p_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_n_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -n 10 list",
                           filename="resources/mmproteo_p_n_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_n_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -n 10 list",
                               filename="resources/mmproteo_p_n_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_t_mzid_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t mzid list",
                           filename="resources/mmproteo_p_t_mzid_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_t_mzid_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t mzid list",
                               filename="resources/mmproteo_p_t_mzid_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_t_gz_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz list",
                           filename="resources/mmproteo_p_t_gz_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_t_gz_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz list",
                               filename="resources/mmproteo_p_t_gz_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_t_gz_mzid_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz,mzid list",
                           filename="resources/mmproteo_p_t_gz_mzid_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_t_gz_mzid_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -t gz,mzid list",
                               filename="resources/mmproteo_p_t_gz_mzid_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_c_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -c fileName,downloadLink list",
                           filename="resources/mmproteo_p_c_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_c_list_output():
     _compare_stdout_with_file(command=f"mmproteo -p {DEFAULT_PROJECT} -c fileName,downloadLink list",
                               filename="resources/mmproteo_p_c_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def store_mmproteo_p_n_t_c_list_output():
     _store_command_output(command=f"mmproteo -p {DEFAULT_PROJECT} -n 100 -t raw,mzml,gz -c fileName,downloadLink list",
                           filename="resources/mmproteo_p_n_t_c_list_output.txt",
                           include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 def test_mmproteo_p_n_t_c_list_output():
@@ -146,6 +163,7 @@ def test_mmproteo_p_n_t_c_list_output():
                                       f"-c fileName,downloadLink list",
                               filename="resources/mmproteo_p_n_t_c_list_output.txt",
                               include_stderr=False)
+    time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
 if __name__ == '__main__':

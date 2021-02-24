@@ -1,5 +1,5 @@
 import time
-from typing import Optional, Set, Callable, Union, Any, Dict, List
+from typing import Optional, Set, Callable, Union, Any, Dict, List, Iterable
 
 from pyteomics import mgf, mzid, mzml
 import pandas as pd
@@ -107,8 +107,10 @@ def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
         if lower_filename.endswith("." + ext) and len(longest_extension) < len(ext):
             longest_extension = ext
 
-    real_filename = filename[:len(filename) - len(longest_extension) - len(".")]
-    return real_filename, longest_extension
+    if len(longest_extension) > 0:
+        filename = filename[:len(filename) - len(longest_extension) - len(".")]
+
+    return filename, longest_extension
 
 
 def extract_file_if_possible(filename: Optional[str],
@@ -117,10 +119,10 @@ def extract_file_if_possible(filename: Optional[str],
     if filename is None:
         return None
 
-    extracted_filename, file_ext = separate_extension(filename.lower(), get_extractable_file_extensions())
+    extracted_filename, file_ext = separate_extension(filename, get_extractable_file_extensions())
     if len(file_ext) == 0:
-        logger.debug("Cannot extract file '%s', unknown extension" % extracted_filename)
-        return filename
+        logger.debug(f"Cannot extract file '{extracted_filename}', unknown extension")
+        return None
 
     extraction_command = _FILE_EXTRACTION_CONFIG[file_ext]["command"] % filename
 
@@ -138,8 +140,8 @@ def extract_file_if_possible(filename: Optional[str],
     return extracted_filename
 
 
-def create_file_extension_filter(required_file_extensions: Set[str],
-                                 optional_file_extensions: Optional[Set[str]] = None) -> Callable[[str], bool]:
+def create_file_extension_filter(required_file_extensions: Iterable[str],
+                                 optional_file_extensions: Optional[Iterable[str]] = None) -> Callable[[str], bool]:
     if optional_file_extensions is None:
         file_extensions = set(required_file_extensions)
     else:
@@ -156,14 +158,37 @@ def create_file_extension_filter(required_file_extensions: Set[str],
 
 def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
+                  keep_null_values: bool = True,
                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
-            for filename in filenames]
+    files = [file for file in filenames if file is not None]
+    if not keep_null_values:
+        filenames = files
+
+    if len(files) == 0:
+        logger.warning("No files available for extraction")
+        return filenames
+
+    logger.debug(f"Trying to extract {len(files)} files")
+
+    extracted_files = [extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
+                       for filename in filenames]
+
+    if keep_null_values:
+        existing_extracted_files = extracted_files
+    else:
+        existing_extracted_files = [file for file in extracted_files if file is not None]
+
+    logger.info(f"Extracted {len(existing_extracted_files)} files")
+
+    if keep_null_values:
+        return extracted_files
+    else:
+        return existing_extracted_files
 
 
 def filter_files_df(files_df: Optional[pd.DataFrame],
                     file_name_column: str = Config.default_file_name_column,
-                    file_extensions: Optional[Set[str]] = None,
+                    file_extensions: Optional[Union[List[str], Set[str]]] = None,
                     max_num_files: Optional[int] = None,
                     sort: bool = Config.default_filter_sort,
                     logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
@@ -207,12 +232,15 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 
 
 def filter_files_list(filenames: List[Optional[str]],
-                      file_extensions: Optional[Set[str]] = None,
+                      file_extensions: Optional[Iterable[str]] = None,
                       max_num_files: Optional[int] = None,
                       sort: bool = Config.default_filter_sort,
                       drop_duplicates: bool = Config.default_filter_drop_duplicates,
                       logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
     filenames = [filename for filename in filenames if filename is not None]
+    if len(filenames) == 0:
+        return list()
+
     df = pd.DataFrame(data=filenames, columns=["fileName"])
     if drop_duplicates:
         df = df.drop_duplicates()
@@ -456,12 +484,11 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
         return []
     filenames_and_extensions = sorted(filenames_and_extensions)
 
-    parquet_files = []
     merge_jobs = []
 
     last_filename, (last_filename_prefix, last_extension) = filenames_and_extensions[0]
     for filename, (filename_prefix, extension) in filenames_and_extensions[1:]:
-        if max_num_files is not None and 0 < max_num_files <= len(parquet_files):
+        if max_num_files is not None and 0 < max_num_files <= len(merge_jobs):
             break
 
         if last_filename is not None and extension != last_extension:
@@ -478,7 +505,6 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                     mzid_filename = filename
 
                 target_filename = filename[:common_filename_prefix_length] + target_filename_postfix
-                parquet_files.append(target_filename)
 
                 merge_jobs.append((mzml_filename, mzid_filename, target_filename))
 
@@ -487,14 +513,16 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
         last_filename_prefix = filename_prefix
         last_extension = extension
 
+    parquet_files = []
+
     for i, (mzml_filename, mzid_filename, target_filename) in enumerate(merge_jobs):
         if skip_existing and os.path.exists(target_filename):
             logger.info("Skipping Merge %d/%d: '%s' + '%s' -> '%s' already exists" %
-                        (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
+                        (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
             continue
 
         logger.info("Started Merge %d/%d: '%s' + '%s' -> '%s'" %
-                    (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
+                    (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
         merged_df = merge_mzml_and_mzid_files(mzml_filename=mzml_filename,
                                               mzid_filename=mzid_filename,
                                               mzml_key_columns=mzml_key_columns,
@@ -502,6 +530,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                               logger=logger)
         merged_df.to_parquet(path=target_filename)
         logger.info("Finished Merge %d/%d: '%s' + '%s' -> '%s'" %
-                    (i+1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
+                    (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
+        parquet_files.append(target_filename)
 
     return parquet_files

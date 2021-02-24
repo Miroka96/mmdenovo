@@ -1,8 +1,9 @@
 import os
-from mmproteo.utils import log
 from typing import List, Hashable, Iterable, Union, Any, Optional
+
 import numpy as np
 import pandas as pd
+from mmproteo.utils import log
 
 
 def concat_set_of_options(options: Iterable[str], option_quote: str = '"', separator: str = ", ") -> str:
@@ -55,7 +56,7 @@ def extract_dict_or_inner_element(elem: Union[Iterable, Any]) -> Union[Iterable,
         # skip one-element lists or sets,...
         while (type(elem) == list or type(elem) == set) and len(elem) == 1:
             elem = next(iter(elem))
-    except:
+    except Exception:
         pass
     return elem
 
@@ -111,7 +112,10 @@ def merge_column_values(df: Optional[pd.DataFrame], columns: List[str]) -> List[
 
     for column in columns:
         if column in df.columns:
-            values += df[column]
+            values.update(df[column].dropna())
+
+    if None in values:
+        values.remove(None)
 
     return list(values)
 

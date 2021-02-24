@@ -1,6 +1,5 @@
-from typing import Dict, Set, List
+from typing import Dict, List
 
-import pandas as pd
 from mmproteo.utils import log, pride, visualization, formats, utils
 from mmproteo.utils.config import Config
 
@@ -40,16 +39,13 @@ class DownloadCommand(AbstractCommand):
                                           downloaded_files_column=config.default_downloaded_files_column,
                                           api_versions=config.pride_versions,
                                           logger=logger)
-        if downloaded_files is None:
-            return
-        if config.processed_files is None:
-            config.processed_files = downloaded_files
-        else:
-            config.processed_files = config.processed_files.append(downloaded_files, ignore_index=True)
 
+        downloaded_files = downloaded_files.dropna(subset=[config.default_downloaded_files_column])
+
+        config.cache(data_df=downloaded_files)
         visualization.print_df(df=downloaded_files,
                                max_num_files=None,
-                               shown_columns=config.shown_columns,
+                               shown_columns=config.shown_columns + [config.default_downloaded_files_column],
                                urlencode_columns=[config.default_download_link_column],
                                logger=logger)
 
@@ -137,14 +133,14 @@ class ExtractCommand(AbstractCommand):
                                           sort=Config.default_filter_sort,
                                           drop_duplicates=Config.default_filter_drop_duplicates,
                                           logger=logger)
+
         extracted_files = formats.extract_files(filenames=files,
                                                 skip_existing=config.skip_existing,
+                                                keep_null_values=False,
                                                 logger=logger)
-        result_df = pd.DataFrame(data=extracted_files, columns=[config.default_extracted_files_column])
-        if config.processed_files is None:
-            config.processed_files = result_df
-        else:
-            config.processed_files.append(result_df)
+
+        result_df = config.cache(data_list=extracted_files, column_names=config.default_extracted_files_column)
+        visualization.print_df(df=result_df, logger=logger)
 
 
 class ConvertRawCommand(AbstractCommand):
@@ -180,11 +176,7 @@ class ConvertRawCommand(AbstractCommand):
                                                     thermo_exec_command=Config.default_thermo_exec_command,
                                                     logger=logger)
 
-        result_df = pd.DataFrame(data=converted_files, columns=[config.default_converted_mgf_files_column])
-        if config.processed_files is None:
-            config.processed_files = result_df
-        else:
-            config.processed_files.append(result_df)
+        config.cache(converted_files, config.default_converted_mgf_files_column)
 
         formats.stop_thermo_docker_container(
             thermo_docker_container_name=Config.default_thermo_docker_container_name,
@@ -233,10 +225,13 @@ class Mz2ParquetCommand(AbstractCommand):
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        formats.merge_mzml_and_mzid_files_to_parquet(filenames=files,
-                                                     skip_existing=config.skip_existing,
-                                                     max_num_files=config.max_num_files,
-                                                     logger=logger)
+        mzmlid_parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=files,
+                                                                            skip_existing=config.skip_existing,
+                                                                            max_num_files=config.max_num_files,
+                                                                            logger=logger)
+
+        result_df = config.cache(mzmlid_parquet_files, config.default_mzmlid_parquet_files_column)
+        visualization.print_df(df=result_df, logger=logger)
 
 
 class CommandDispatcher:
@@ -275,16 +270,12 @@ class CommandDispatcher:
                 command.validate(config=config, logger=logger)
             except log.LoggedWarningException:
                 pass
-            except log.LoggedErrorException:
-                return
 
         for command in commands:
             try:
                 command.run(config=config, logger=logger)
             except log.LoggedWarningException:
                 pass
-            except log.LoggedErrorException:
-                return
 
 
 DISPATCHER = CommandDispatcher()

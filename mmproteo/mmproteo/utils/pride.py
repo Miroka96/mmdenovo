@@ -1,6 +1,6 @@
 import json
 from json import JSONDecodeError
-from typing import Optional, List, Set, Dict
+from typing import Optional, List, Set, Dict, Iterable
 
 import pandas as pd
 import requests
@@ -88,7 +88,7 @@ class PrideApiV1(AbstractPrideApi):
         try:
             files_df = pd.DataFrame(pd.json_normalize(response_dict['list']))
             return files_df
-        except:
+        except Exception:
             return None
 
 
@@ -129,7 +129,7 @@ class PrideApiV2(AbstractPrideApi):
 
         try:
             files_df = pd.DataFrame(pd.json_normalize(response_dict_list))
-        except:
+        except Exception:
             return None
 
         files_df = files_df.rename(columns={"publicFileLocation.value": download_link_column})
@@ -173,8 +173,9 @@ def _query_project_summary(project_name: str,
     return None
 
 
-def get_project_info(project_name: str, api_versions: List[str] = None, logger: log.Logger = log.DUMMY_LOGGER) -> \
-Optional[str]:
+def get_project_info(project_name: str,
+                     api_versions: List[str] = None,
+                     logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
     summary_dict = _query_project_summary(project_name=project_name, api_versions=api_versions, logger=logger)
     if summary_dict is None:
         return None
@@ -202,7 +203,7 @@ def get_project_files(project_name: str,
 
 def download(project_name: Optional[str] = None,
              project_files: Optional[pd.DataFrame] = None,
-             valid_file_extensions: Optional[Set[str]] = None,
+             valid_file_extensions: Optional[Iterable[str]] = None,
              max_num_files: Optional[int] = None,
              download_dir: str = Config.default_storage_dir,
              skip_existing: bool = Config.default_skip_existing,

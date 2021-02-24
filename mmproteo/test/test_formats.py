@@ -1,13 +1,26 @@
 from mmproteo.utils import formats
+from .utils.defaults import *
+from .utils.fixtures import *
 
-MZML_FILE = "../../datasets/PXD010000/Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.mzML"
-MZID_FILE = "../../datasets/PXD010000/Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39_msgfplus.mzid"
 
-
-def test_read_mzid():
+def test_read_mzid(run_with_datasets):
     formats.read(MZID_FILE)
 
 
-def test_merge_mzml_mzid_to_parquet():
+def test_merge_mzml_mzid_to_parquet(run_with_datasets):
     parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=[MZML_FILE, MZID_FILE])
     assert len(parquet_files) > 0
+
+
+def test_filter_files_list():
+    filenames = [
+        "abc.txt",
+        "def.txt.gz",
+        "ghi.gz"
+    ]
+
+    assert ["abc.txt"] == formats.filter_files_list(filenames=filenames, max_num_files=1)
+    assert ["abc.txt", "def.txt.gz"] == formats.filter_files_list(filenames=filenames, file_extensions=["txt"])
+    assert ["def.txt.gz", "ghi.gz"] == formats.filter_files_list(filenames=filenames, file_extensions=["gz"])
+    assert ["abc.txt", "def.txt.gz", "ghi.gz"] == formats.filter_files_list(filenames=filenames,
+                                                                            file_extensions=["gz", "txt"])
