@@ -169,20 +169,26 @@ class ConvertRawCommand(AbstractCommand):
                                               logger=logger)
 
         converted_files = formats.convert_raw_files(filenames=files,
-                                                    output_format=Config.default_thermo_output_format,
+                                                    output_format=config.thermo_output_format,
                                                     skip_existing=config.skip_existing,
+                                                    max_num_files=config.max_num_files,
+                                                    keep_null_values=False,
                                                     thermo_docker_container_name=Config.
                                                     default_thermo_docker_container_name,
                                                     thermo_exec_command=Config.default_thermo_exec_command,
                                                     logger=logger)
 
-        config.cache(converted_files, config.default_converted_mgf_files_column)
+        config.cache(converted_files, config.default_converted_raw_files_column)
 
-        formats.stop_thermo_docker_container(
-            thermo_docker_container_name=Config.default_thermo_docker_container_name,
-            thermo_stop_container_command_template=Config.default_thermo_stop_container_command_template,
-            logger=logger
-        )
+        if not config.thermo_keep_container_running:
+            formats.stop_thermo_docker_container(
+                thermo_docker_container_name=Config.default_thermo_docker_container_name,
+                thermo_stop_container_command_template=Config.default_thermo_stop_container_command_template,
+                logger=logger
+            )
+
+    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+        formats.assert_valid_thermo_output_format(output_format=config.thermo_output_format, logger=logger)
 
 
 class Mgf2ParquetCommand(AbstractCommand):
@@ -198,14 +204,19 @@ class Mgf2ParquetCommand(AbstractCommand):
         files = utils.merge_column_values(config.processed_files,
                                           [config.default_downloaded_files_column,
                                            config.default_extracted_files_column,
-                                           config.default_converted_mgf_files_column])
+                                           config.default_converted_raw_files_column])
 
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        formats.convert_mgf_files_to_parquet(filenames=files,
-                                             skip_existing=config.skip_existing,
-                                             logger=logger)
+        mgf_parquet_files = formats.convert_mgf_files_to_parquet(filenames=files,
+                                                                 skip_existing=config.skip_existing,
+                                                                 max_num_files=config.max_num_files,
+                                                                 keep_null_values=False,
+                                                                 logger=logger)
+
+        result_df = config.cache(mgf_parquet_files, config.default_mgf_parquet_files_column)
+        visualization.print_df(df=result_df, logger=logger)
 
 
 class Mz2ParquetCommand(AbstractCommand):

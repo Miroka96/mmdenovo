@@ -38,8 +38,9 @@ class Config:
     default_download_link_column: str = 'downloadLink'
     default_downloaded_files_column: str = 'downloaded_files'
     default_extracted_files_column: str = 'extracted_files'
-    default_converted_mgf_files_column: str = 'converted_mgf_files'
+    default_converted_raw_files_column: str = 'converted_raw_files'
     default_mzmlid_parquet_files_column: str = 'converted_mzmlid_parquet_files'
+    default_mgf_parquet_files_column: str = 'converted_mgf_parquet_files'
     default_thermo_docker_container_name: str = "thermorawfileparser"
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.2.3--1"
     default_thermo_start_container_command_template: str = \
@@ -48,12 +49,14 @@ class Config:
     default_thermo_output_format: str = "mgf"
     # TODO find correct exec command
     default_thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'"
+    default_thermo_keep_container_running: bool = False
     default_option_quote: str = '"'
     default_option_separator: str = ", "
     default_skip_existing: bool = True
     default_filter_sort: bool = True
     default_filter_drop_duplicates: bool = True
     default_count_failed_files: bool = False
+    default_keep_null_values: bool = True
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
     default_mzid_key_columns: List[str] = ['name', 'spectrumID']
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
@@ -74,6 +77,8 @@ class Config:
         self.pride_versions: List[str] = []
         self.fail_early: bool = False
         self.terminate_process: bool = False
+        self.thermo_output_format: str = self.default_thermo_output_format
+        self.thermo_keep_container_running: bool = self.default_thermo_keep_container_running
 
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
@@ -107,7 +112,7 @@ class Config:
         return data_df
 
     def parse_arguments(self) -> None:
-        from mmproteo.utils import commands, pride, utils
+        from mmproteo.utils import commands, pride, utils, formats
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
 
         parser.add_argument("command",
@@ -182,6 +187,15 @@ class Config:
         parser.add_argument("--dummy-logger",
                             action="store_true",
                             help="Use a simpler log format and log to stdout.")
+        parser.add_argument("--thermo-output-format",
+                            default=self.thermo_output_format,
+                            choices=formats.get_thermo_raw_file_parser_output_formats(),
+                            help="the output format into which the raw file will be converted. This parameter only "
+                                 f"applies to the {commands.ConvertRawCommand().get_command()} command.")
+        parser.add_argument("--thermo-keep-running",
+                            action="store_true",
+                            help="Keep the ThermoRawFileParser Docker container running after conversion. This can "
+                                 "speed up batch processing and ease debugging.")
 
         args = parser.parse_args()
 
@@ -198,6 +212,8 @@ class Config:
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
+        self.thermo_output_format = args.thermo_output_format
+        self.thermo_keep_container_running = args.thermo_keep_running
 
         self.commands = utils.deduplicate_list(args.command)
 

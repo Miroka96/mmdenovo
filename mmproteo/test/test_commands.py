@@ -123,3 +123,43 @@ def test_mz_pipeline_in_single_steps(run_in_temp_directory):
 
     assert os.path.isfile("Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39_mzmlid.parquet"), \
         "the mzml file and the mzid file should have been merged"
+
+
+def test_raw_mgf_pipeline(run_in_temp_directory):
+    conf = config.Config()
+    conf.pride_project = DEFAULT_PROJECT
+    conf.valid_file_extensions = ["raw"]
+    conf.max_num_files = 1
+
+    conf.commands = ["download", "convertraw", "mgf2parquet"]
+    logger = log.TestLogger(fail_early=False,
+                            terminate_process=False,
+                            verbose=True)
+    conf.check(logger)
+
+    commands.DISPATCHER.dispatch_commands(config=conf, logger=logger)
+
+    assert os.path.isfile("Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.raw"), \
+        "the raw file should have been downloaded"
+    assert os.path.isfile("Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.mgf"), \
+        "the raw file should have been converted to mgf format"
+    assert os.path.isfile("Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.parquet"), \
+        "the mgf file should have been converted to parquet format"
+
+    assert conf.default_downloaded_files_column in conf.processed_files, \
+        "there should be references to downloaded files"
+    assert len(conf.processed_files[conf.default_downloaded_files_column].dropna()) == 1, \
+        "there should be 1 referenced downloaded file"
+
+    assert conf.default_converted_raw_files_column in conf.processed_files, \
+        "there should be references to converted raw files"
+    assert len(conf.processed_files[conf.default_converted_raw_files_column].dropna()) == 1, \
+        "there should be 1 referenced converted raw file"
+
+    assert conf.default_mzmlid_parquet_files_column in conf.processed_files, \
+        f"there should be references to converted '*{conf.default_mzmlid_parquet_file_postfix}' files"
+    assert len(conf.processed_files[conf.default_mzmlid_parquet_files_column].dropna()) == 1, \
+        f"there should be 1 referenced converted '*{conf.default_mzmlid_parquet_file_postfix}' file"
+
+
+

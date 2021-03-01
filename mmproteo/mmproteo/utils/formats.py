@@ -1,5 +1,5 @@
 import time
-from typing import Optional, Set, Callable, Union, Any, Dict, List, Iterable
+from typing import Optional, Set, Callable, Union, Any, Dict, List, Iterable, NoReturn
 
 from pyteomics import mgf, mzid, mzml
 import pandas as pd
@@ -95,7 +95,7 @@ def get_extractable_file_extensions() -> Set[str]:
 
 def get_string_of_extractable_file_extensions(extension_quote: str = Config.default_option_quote,
                                               separator: str = Config.default_option_separator) -> str:
-    return utils.concat_set_of_options(options=get_readable_file_extensions(),
+    return utils.concat_set_of_options(options=get_extractable_file_extensions(),
                                        option_quote=extension_quote,
                                        separator=separator)
 
@@ -158,32 +158,18 @@ def create_file_extension_filter(required_file_extensions: Iterable[str],
 
 def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
-                  keep_null_values: bool = True,
+                  max_num_files: Optional[int] = None,
+                  keep_null_values: bool = Config.default_keep_null_values,
                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    files = [file for file in filenames if file is not None]
-    if not keep_null_values:
-        filenames = files
+    def file_processor(filename: Optional[str]) -> Optional[str]:
+        return extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
 
-    if len(files) == 0:
-        logger.warning("No files available for extraction")
-        return filenames
-
-    logger.debug(f"Trying to extract {len(files)} files")
-
-    extracted_files = [extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
-                       for filename in filenames]
-
-    if keep_null_values:
-        existing_extracted_files = extracted_files
-    else:
-        existing_extracted_files = [file for file in extracted_files if file is not None]
-
-    logger.info(f"Extracted {len(existing_extracted_files)} files")
-
-    if keep_null_values:
-        return extracted_files
-    else:
-        return existing_extracted_files
+    return _process_files(filenames=filenames,
+                          file_processor=file_processor,
+                          action_name="extract",
+                          max_num_files=max_num_files,
+                          keep_null_values=keep_null_values,
+                          logger=logger)
 
 
 def filter_files_df(files_df: Optional[pd.DataFrame],
@@ -304,8 +290,8 @@ _THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS = {
 }
 
 
-def get_thermo_raw_file_parser_output_formats() -> Set[str]:
-    return set(_THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS.keys())
+def get_thermo_raw_file_parser_output_formats() -> List[str]:
+    return sorted(_THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS.keys())
 
 
 def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Config.default_option_quote,
@@ -315,15 +301,19 @@ def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Conf
                                        separator=separator)
 
 
+def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[NoReturn]:
+    logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
+                       "Invalid output format '%s'. Currently allowed formats are: [%s]"
+                       % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
+
+
 def convert_raw_file(filename: Optional[str],
                      output_format: str = Config.default_thermo_output_format,
                      skip_existing: bool = Config.default_skip_existing,
                      thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                      thermo_exec_command: str = Config.default_thermo_exec_command,
                      logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
-    logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
-                       "Invalid output format '%s'. Currently allowed formats are: [%s]"
-                       % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
+    assert_valid_thermo_output_format(output_format=output_format, logger=logger)
 
     if filename is None:
         return None
@@ -361,16 +351,27 @@ def convert_raw_file(filename: Optional[str],
 def convert_raw_files(filenames: List[Optional[str]],
                       output_format: str = Config.default_thermo_output_format,
                       skip_existing: bool = Config.default_skip_existing,
+                      max_num_files: Optional[int] = None,
+                      keep_null_values: bool = Config.default_keep_null_values,
                       thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                       thermo_exec_command: str = Config.default_thermo_exec_command,
                       logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [convert_raw_file(filename=filename,
-                             output_format=output_format,
-                             skip_existing=skip_existing,
-                             thermo_docker_container_name=thermo_docker_container_name,
-                             thermo_exec_command=thermo_exec_command,
-                             logger=logger)
-            for filename in filenames]
+    assert_valid_thermo_output_format(output_format=output_format, logger=logger)
+
+    def file_processor(filename: Optional[str]) -> Optional[str]:
+        return convert_raw_file(filename=filename,
+                                output_format=output_format,
+                                skip_existing=skip_existing,
+                                thermo_docker_container_name=thermo_docker_container_name,
+                                thermo_exec_command=thermo_exec_command,
+                                logger=logger)
+
+    return _process_files(filenames=filenames,
+                          file_processor=file_processor,
+                          action_name=f"raw2{output_format}-convert",
+                          max_num_files=max_num_files,
+                          keep_null_values=keep_null_values,
+                          logger=logger)
 
 
 def convert_mgf_file_to_parquet(filename: Optional[str],
@@ -401,13 +402,73 @@ def convert_mgf_file_to_parquet(filename: Optional[str],
         return None
 
 
+def _process_files(filenames: List[Optional[str]],
+                   file_processor: Callable[[str], Optional[str]],
+                   action_name: str,
+                   max_num_files: Optional[int] = None,
+                   keep_null_values: bool = Config.default_keep_null_values,
+                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    files = [file for file in filenames if file is not None]
+    if not keep_null_values:
+        filenames = files
+
+    if len(files) == 0:
+        logger.warning("No files available to " + action_name)
+        return filenames
+
+    if max_num_files is not None and max_num_files > 0:
+        files_to_process_count = min(len(files), max_num_files)
+        files = files[:files_to_process_count]
+
+    logger.debug(f"Trying to extract {len(files)} files")
+
+    processed_files = list()
+    processed_files_count = 0
+
+    for filename in filenames:
+        if filename is None:
+            processed_file = None
+        else:
+            processed_file = file_processor(filename)
+
+        processed_files.append(processed_file)
+
+        if processed_file is not None:
+            processed_files_count += 1
+
+            if max_num_files is not None and processed_files_count >= max_num_files > 0:
+                break
+
+    # there might be new None values in the processed_files
+    existing_processed_files = [file for file in processed_files if file is not None]
+
+    if len(existing_processed_files) > 0:
+        logger.info(f"Successfully {action_name}ed {len(existing_processed_files)} files")
+    else:
+        logger.info(f"No files were {action_name}ed")
+
+    if keep_null_values:
+        return processed_files
+    else:
+        return existing_processed_files
+
+
 def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  skip_existing: bool = Config.default_skip_existing,
+                                 max_num_files: Optional[int] = None,
+                                 keep_null_values: bool = Config.default_keep_null_values,
                                  logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [convert_mgf_file_to_parquet(filename=filename,
-                                        skip_existing=skip_existing,
-                                        logger=logger)
-            for filename in filenames]
+    def file_processor(filename: Optional[str]) -> Optional[str]:
+        return convert_mgf_file_to_parquet(filename=filename,
+                                           skip_existing=skip_existing,
+                                           logger=logger)
+
+    return _process_files(filenames=filenames,
+                          file_processor=file_processor,
+                          action_name="mgf2parquet-convert",
+                          max_num_files=max_num_files,
+                          keep_null_values=keep_null_values,
+                          logger=logger)
 
 
 def merge_mzml_and_mzid_dfs(mzml_df: pd.DataFrame,
