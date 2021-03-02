@@ -44,11 +44,12 @@ class Config:
     default_thermo_docker_container_name: str = "thermorawfileparser"
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.2.3--1"
     default_thermo_start_container_command_template: str = \
-        "docker run --rm -w /data -v %s:/data --name %s -d %s tail -f /dev/null"
-    default_thermo_stop_container_command_template: str = "docker stop %s"
+        "docker run --rm -w /data -v {abs_storage_dir}:/data --name {container_name} -d {image_name} tail -f /dev/null"
+    default_thermo_stop_container_command_template: str = "docker stop {container_name}"
     default_thermo_output_format: str = "mgf"
     # TODO find correct exec command
-    default_thermo_exec_command: str = "docker exec -it %s ThermoRawFileParser -f %d -i '%s'"
+    default_thermo_exec_command: str = "docker exec -i {container_name} ThermoRawFileParser -f {format} " \
+                                       "-i '/data/{input}' -o /data"
     default_thermo_keep_container_running: bool = False
     default_option_quote: str = '"'
     default_option_separator: str = ", "
@@ -56,7 +57,8 @@ class Config:
     default_filter_sort: bool = True
     default_filter_drop_duplicates: bool = True
     default_count_failed_files: bool = False
-    default_keep_null_values: bool = True
+    default_keep_null_values: bool = False
+    default_pre_filter_files: bool = True
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
     default_mzid_key_columns: List[str] = ['name', 'spectrumID']
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"

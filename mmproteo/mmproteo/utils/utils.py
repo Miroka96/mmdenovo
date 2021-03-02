@@ -101,7 +101,8 @@ def flatten_dict(input_dict: dict,
 
 def is_docker_container_running(container_name: str,
                                 docker_inspect_container_command_template: str =
-                                "docker container inspect -f '{{.State.Status}}' {container_name}") -> bool:
+                                "docker container inspect -f '{{.State.Status}}' {container_name} > /dev/null 2>&1") \
+        -> bool:
     return_code = os.system(docker_inspect_container_command_template.format(container_name=container_name))
     return return_code == 0
 

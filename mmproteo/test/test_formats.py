@@ -4,11 +4,11 @@ from .utils.fixtures import *
 
 
 def test_read_mzid(run_with_datasets):
-    formats.read(MZID_FILE)
+    formats.read(MZID_FILE_PATH)
 
 
 def test_merge_mzml_mzid_to_parquet(run_with_datasets):
-    parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=[MZML_FILE, MZID_FILE])
+    parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=[MZML_FILE_PATH, MZID_FILE_PATH])
     assert len(parquet_files) > 0
 
 

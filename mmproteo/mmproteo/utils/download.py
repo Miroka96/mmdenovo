@@ -43,7 +43,11 @@ def download_files(links: List[str],
                    logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
     num_files = len(links)
 
-    logger.info("Downloading %d files" % num_files)
+    if num_files > 1:
+        plural_s = "s"
+    else:
+        plural_s = ""
+    logger.info(f"Downloading {num_files} file{plural_s}")
 
     files_downloaded_count = 0
     files_processed = 1
@@ -75,7 +79,11 @@ def download_files(links: List[str],
         if download_succeeded or count_failed_files:
             files_processed += 1
 
-    logger.info("Finished downloading %d files" % files_downloaded_count)
+    if files_downloaded_count > 1:
+        plural_s = "s"
+    else:
+        plural_s = ""
+    logger.info(f"Finished downloading {files_downloaded_count} file{plural_s}")
     return downloaded_files_names
 
 

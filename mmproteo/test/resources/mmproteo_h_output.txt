@@ -3,6 +3,8 @@ usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
                 [--log-to-stdout] [-c SHOWN_COLUMNS]
                 [-t VALID_FILE_EXTENSIONS] [-e] [-v] [-f] [--version]
                 [-i {1,2}] [--dummy-logger]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}]
+                [--thermo-keep-running]
                 {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
                 [{convertraw,download,extract,info,list,mgf2parquet,mz2parquet} ...]
 
@@ -20,8 +22,8 @@ positional arguments:
                         extract     : extract all downloaded archive files or,
                                       if none were downloaded, those in the
                                       data directory. Currently, the following
-                                      archive formats are supported: "mgf",
-                                      "mzid", "mzml", "parquet"
+                                      archive formats are supported: "gz",
+                                      "zip"
                         info        : request project information for a given
                                       project
                         list        : list files and their attributes in a
@@ -84,6 +86,14 @@ optional arguments:
                         version should appear at most once. Duplicates are
                         dropped after the first occurrence. An empty list
                         (default) uses all api versions in the following
-                        order: ["1", "2"] (default: [])
+                        order: ["2", "1"] (default: [])
   --dummy-logger        Use a simpler log format and log to stdout. (default:
                         False)
+  --thermo-output-format {imzml,mgf,mzml,parquet}
+                        the output format into which the raw file will be
+                        converted. This parameter only applies to the
+                        convertraw command. (default: mgf)
+  --thermo-keep-running
+                        Keep the ThermoRawFileParser Docker container running
+                        after conversion. This can speed up batch processing
+                        and ease debugging. (default: False)

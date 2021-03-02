@@ -3,6 +3,7 @@ import shutil
 import os
 
 import pytest
+from .defaults import DEFAULT_PROJECT_DATASET_PATH
 
 
 @pytest.fixture(scope="function")
@@ -18,11 +19,12 @@ def run_in_temp_directory():
     # after the test
     os.chdir(current_working_dir)
     shutil.rmtree(temporary_working_dir)
+    print("removed temporary working directory")
 
 
 @pytest.fixture(scope="session")
 def run_with_datasets():
     current_working_dir = os.getcwd()
-    os.chdir("../../datasets")
-    os.system("mmproteo -p PXD010000 -t mzid,mzml -n 2 download")
+    os.chdir(DEFAULT_PROJECT_DATASET_PATH)
+    os.system("mmproteo -p PXD010000 -t mzid,mzml -n 2 download extract")
     os.chdir(current_working_dir)

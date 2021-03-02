@@ -108,9 +108,10 @@ def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
             longest_extension = ext
 
     if len(longest_extension) > 0:
-        filename = filename[:len(filename) - len(longest_extension) - len(".")]
-
-    return filename, longest_extension
+        base_filename = filename[:len(filename) - len(longest_extension) - len(".")]
+        return base_filename, longest_extension
+    else:
+        return filename, ""
 
 
 def extract_file_if_possible(filename: Optional[str],
@@ -141,7 +142,8 @@ def extract_file_if_possible(filename: Optional[str],
 
 
 def create_file_extension_filter(required_file_extensions: Iterable[str],
-                                 optional_file_extensions: Optional[Iterable[str]] = None) -> Callable[[str], bool]:
+                                 optional_file_extensions: Optional[Iterable[str]] = None) \
+        -> Callable[[Optional[str]], bool]:
     if optional_file_extensions is None:
         file_extensions = set(required_file_extensions)
     else:
@@ -150,7 +152,9 @@ def create_file_extension_filter(required_file_extensions: Iterable[str],
                            for optional_extension in optional_file_extensions}
         file_extensions.update(required_file_extensions)  # add all
 
-    def filter_file_extension(filename: str) -> bool:
+    def filter_file_extension(filename: Optional[str]) -> bool:
+        if filename is None:
+            return True
         return filename.lower().endswith(tuple(file_extensions))
 
     return filter_file_extension
@@ -160,7 +164,17 @@ def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
                   max_num_files: Optional[int] = None,
                   keep_null_values: bool = Config.default_keep_null_values,
+                  pre_filter_files: bool = Config.default_pre_filter_files,
                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    if pre_filter_files:
+        filenames = filter_files_list(filenames=filenames,
+                                      file_extensions=get_extractable_file_extensions(),
+                                      max_num_files=max_num_files,
+                                      keep_null_values=keep_null_values,
+                                      drop_duplicates=not keep_null_values,
+                                      sort=not keep_null_values,
+                                      logger=logger)
+
     def file_processor(filename: Optional[str]) -> Optional[str]:
         return extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
 
@@ -220,16 +234,39 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 def filter_files_list(filenames: List[Optional[str]],
                       file_extensions: Optional[Iterable[str]] = None,
                       max_num_files: Optional[int] = None,
+                      keep_null_values: bool = Config.default_keep_null_values,
                       sort: bool = Config.default_filter_sort,
                       drop_duplicates: bool = Config.default_filter_drop_duplicates,
-                      logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
-    filenames = [filename for filename in filenames if filename is not None]
+                      logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    """
+
+    :param filenames:
+    :param file_extensions:
+    :param max_num_files:
+    :param keep_null_values:    whether to keep null values in the given :param:`filenames`. Cannot be used
+                                with :param:`drop_duplicates`
+    :param sort:
+    :param drop_duplicates:     whether to drop duplicate entries in :param:`filenames`. Cannot be used with
+                                :param:`keep_null_values`.
+    :param logger:
+    :return:
+    """
+    logger.assert_true(not keep_null_values or not drop_duplicates,
+                       "Cannot use keep_null_values and drop_duplicates simultaneously")
+
+    if not keep_null_values:
+        filenames = [filename for filename in filenames if filename is not None]
     if len(filenames) == 0:
         return list()
 
     df = pd.DataFrame(data=filenames, columns=["fileName"])
     if drop_duplicates:
+        # TODO this also drops duplicate None values
+        # it would require further preprocessing to use it together with keep_null_values
+        # possible solution: copy the fileName column to a temporary column, fill all None values there with unique
+        # values, drop_duplicates on this temporary column, remove the temporary column
         df = df.drop_duplicates()
+
     filtered_df = filter_files_df(files_df=df,
                                   file_name_column="fileName",
                                   file_extensions=file_extensions,
@@ -251,7 +288,11 @@ def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
         logger.info(subject + " is already running")
         return
 
-    command = thermo_start_container_command_template % (storage_dir, thermo_docker_container_name, thermo_docker_image)
+    storage_dir = os.path.abspath(storage_dir)
+
+    command = thermo_start_container_command_template.format(abs_storage_dir=storage_dir,
+                                                             container_name=thermo_docker_container_name,
+                                                             image_name=thermo_docker_image)
 
     logger.debug("Starting %s using '%s'" % (subject, command))
     return_code = os.system(command=command)  # TODO prevent command injection, e.g. disable shell
@@ -273,7 +314,7 @@ def stop_thermo_docker_container(thermo_docker_container_name: str = Config.defa
         logger.info(subject + " is already stopped")
         return
 
-    command = thermo_stop_container_command_template % thermo_docker_container_name
+    command = thermo_stop_container_command_template.format(container_name=thermo_docker_container_name)
 
     logger.debug("Stopping %s using '%s'" % (subject, command))
     os.system(command=command)  # TODO prevent command injection, e.g. disable shell
@@ -319,7 +360,7 @@ def convert_raw_file(filename: Optional[str],
         return None
 
     base_filename, file_ext = separate_extension(filename=filename,
-                                                 extensions=set("raw"))
+                                                 extensions={"raw"})
     if len(file_ext) == 0:
         logger.debug("Cannot convert file '%s', unknown extension" % filename)
         return None
@@ -336,7 +377,9 @@ def convert_raw_file(filename: Optional[str],
 
     output_format_id = _THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS[output_format]
 
-    command = thermo_exec_command % (thermo_docker_container_name, output_format_id, filename)
+    command = thermo_exec_command.format(container_name=thermo_docker_container_name,
+                                         format=output_format_id,
+                                         input=filename)
 
     logger.debug("Converting file using command '%s'" % command)
     return_code = os.system(command)
@@ -353,10 +396,20 @@ def convert_raw_files(filenames: List[Optional[str]],
                       skip_existing: bool = Config.default_skip_existing,
                       max_num_files: Optional[int] = None,
                       keep_null_values: bool = Config.default_keep_null_values,
+                      pre_filter_files: bool = Config.default_pre_filter_files,
                       thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                       thermo_exec_command: str = Config.default_thermo_exec_command,
                       logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
     assert_valid_thermo_output_format(output_format=output_format, logger=logger)
+
+    if pre_filter_files:
+        filenames = filter_files_list(filenames=filenames,
+                                      file_extensions={"raw"},
+                                      max_num_files=max_num_files,
+                                      keep_null_values=keep_null_values,
+                                      drop_duplicates=not keep_null_values,
+                                      sort=not keep_null_values,
+                                      logger=logger)
 
     def file_processor(filename: Optional[str]) -> Optional[str]:
         return convert_raw_file(filename=filename,
@@ -381,7 +434,7 @@ def convert_mgf_file_to_parquet(filename: Optional[str],
         return None
 
     base_filename, file_ext = separate_extension(filename=filename,
-                                                 extensions=set("mgf"))
+                                                 extensions={"mgf"})
     if len(file_ext) == 0:
         logger.debug("Cannot convert file '%s', unknown extension" % filename)
         return None
@@ -420,7 +473,7 @@ def _process_files(filenames: List[Optional[str]],
         files_to_process_count = min(len(files), max_num_files)
         files = files[:files_to_process_count]
 
-    logger.debug(f"Trying to extract {len(files)} files")
+    logger.debug(f"Trying to {action_name} {len(files)} files")
 
     processed_files = list()
     processed_files_count = 0
@@ -457,7 +510,17 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  skip_existing: bool = Config.default_skip_existing,
                                  max_num_files: Optional[int] = None,
                                  keep_null_values: bool = Config.default_keep_null_values,
+                                 pre_filter_files: bool = Config.default_pre_filter_files,
                                  logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+    if pre_filter_files:
+        filenames = filter_files_list(filenames=filenames,
+                                      file_extensions={"mgf"},
+                                      max_num_files=max_num_files,
+                                      keep_null_values=keep_null_values,
+                                      drop_duplicates=not keep_null_values,
+                                      sort=not keep_null_values,
+                                      logger=logger)
+
     def file_processor(filename: Optional[str]) -> Optional[str]:
         return convert_mgf_file_to_parquet(filename=filename,
                                            skip_existing=skip_existing,
