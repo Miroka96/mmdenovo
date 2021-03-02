@@ -63,8 +63,11 @@ def extract_dict_or_inner_element(elem: Union[Iterable, Any]) -> Union[Iterable,
             non_null_elements = [e for e in elem if e is not None]
             if len(non_null_elements) == 0:
                 elem = None
-            elif len(non_null_elements) == 1:
+                break
+            if len(non_null_elements) == 1:
                 elem = non_null_elements[0]
+                continue
+            break
     except Exception:
         pass
     return elem

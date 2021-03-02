@@ -17,6 +17,7 @@ MZID_GZ_FILE = MZID_FILE + ".gz"
 MZID_FILE_PATH = os.path.join(DEFAULT_PROJECT_DATASET_PATH, MZID_FILE)
 
 MZMLID_FILE = "Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39_mzmlid.parquet"
+MZMLID_FILE_PATH = os.path.join(DEFAULT_PROJECT_DATASET_PATH, MZMLID_FILE)
 
 RAW_FILE = "Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.raw"
 MGF_FILE = "Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.mgf"
