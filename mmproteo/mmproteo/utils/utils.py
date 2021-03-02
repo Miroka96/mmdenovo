@@ -56,8 +56,15 @@ def ensure_dir_exists(directory: str, logger: log.Logger = log.DEFAULT_LOGGER) -
 def extract_dict_or_inner_element(elem: Union[Iterable, Any]) -> Union[Iterable, Any]:
     try:
         # skip one-element lists or sets,...
-        while (type(elem) == list or type(elem) == set) and len(elem) == 1:
-            elem = next(iter(elem))
+        while type(elem) == list or type(elem) == set or type(elem) == tuple:
+            if len(elem) == 1:
+                elem = next(iter(elem))
+                continue
+            non_null_elements = [e for e in elem if e is not None]
+            if len(non_null_elements) == 0:
+                elem = None
+            elif len(non_null_elements) == 1:
+                elem = non_null_elements[0]
     except Exception:
         pass
     return elem

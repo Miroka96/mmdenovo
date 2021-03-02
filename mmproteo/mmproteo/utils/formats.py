@@ -451,7 +451,7 @@ def convert_mgf_file_to_parquet(filename: Optional[str],
         logger.info("Converted file " + filename)
         return converted_filename
     except Exception as e:
-        logger.warning('Failed converting file "%s" (%s)' % (filename, e))
+        logger.warning(f'Failed converting file "{filename}" ({e})')
         return None
 
 
