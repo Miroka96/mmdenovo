@@ -11,10 +11,10 @@ class AbstractCommand:
     def get_description(self) -> str:
         raise NotImplementedError
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         raise NotImplementedError
 
-    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         pass
 
 
@@ -26,7 +26,7 @@ class DownloadCommand(AbstractCommand):
     def get_description(self) -> str:
         return "download files from a given project"
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         downloaded_files = pride.download(project_name=config.pride_project,
                                           project_files=config.project_files,
                                           valid_file_extensions=config.valid_file_extensions,
@@ -48,7 +48,7 @@ class DownloadCommand(AbstractCommand):
                                urlencode_columns=[config.default_download_link_column],
                                logger=logger)
 
-    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         config.require_pride_project(logger=logger)
 
         if len(config.valid_file_extensions) != 0 and config.max_num_files % len(config.valid_file_extensions) != 0:
@@ -65,7 +65,7 @@ class InfoCommand(AbstractCommand):
     def get_description(self) -> str:
         return "request project information for a given project"
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         project_info = pride.get_project_info(project_name=config.pride_project,
                                               api_versions=config.pride_versions,
                                               logger=logger)
@@ -73,7 +73,7 @@ class InfoCommand(AbstractCommand):
             return
         print(project_info)
 
-    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         config.require_pride_project(logger=logger)
 
 
@@ -85,7 +85,7 @@ class ListCommand(AbstractCommand):
     def get_description(self) -> str:
         return "list files and their attributes in a given project"
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         if config.project_files is None:
             config.project_files = pride.get_project_files(project_name=config.pride_project,
                                                            api_versions=config.pride_versions,
@@ -105,7 +105,7 @@ class ListCommand(AbstractCommand):
                                urlencode_columns=[config.default_download_link_column],
                                logger=logger)
 
-    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         config.require_pride_project(logger=logger)
 
 
@@ -119,7 +119,7 @@ class ExtractCommand(AbstractCommand):
                "Currently, the following archive formats are supported: " + \
                formats.get_string_of_extractable_file_extensions()
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
                                           [config.default_downloaded_files_column])
 
@@ -147,7 +147,7 @@ class ConvertRawCommand(AbstractCommand):
                "those raw files in the data " \
                "directory, into the given thermo output format using the ThermoRawFileParser"
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
                                           [config.default_downloaded_files_column,
                                            config.default_extracted_files_column])
@@ -184,7 +184,7 @@ class ConvertRawCommand(AbstractCommand):
 
         visualization.print_df(df=result_df, logger=logger)
 
-    def validate(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         formats.assert_valid_thermo_output_format(output_format=config.thermo_output_format, logger=logger)
 
 
@@ -197,7 +197,7 @@ class Mgf2ParquetCommand(AbstractCommand):
         return "convert all downloaded, extracted, or converted mgf files into parquet format, or, " \
                "if no files were previously processed, convert the mgf files in the data directory"
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
                                           [config.default_downloaded_files_column,
                                            config.default_extracted_files_column,
@@ -226,7 +226,7 @@ class Mz2ParquetCommand(AbstractCommand):
         return "merge and convert all downloaded or extracted mzid and mzml files into parquet format" \
                " or, if no files were previously processed, merge and convert the files in the data directory."
 
-    def run(self, config: Config, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
                                           [config.default_downloaded_files_column,
                                            config.default_extracted_files_column])
@@ -275,7 +275,7 @@ class CommandDispatcher:
                           config: Config,
                           catch_validation_warnings: bool = True,
                           catch_run_warnings: bool = True,
-                          logger: log.Logger = log.DUMMY_LOGGER) -> None:
+                          logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         commands = [self.get_command(command_name) for command_name in config.commands]
 
         for command in commands:

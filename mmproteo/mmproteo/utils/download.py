@@ -40,7 +40,7 @@ def download_file(link: str, skip_existing: bool = Config.default_skip_existing)
 def download_files(links: List[str],
                    skip_existing: bool = Config.default_skip_existing,
                    count_failed_files: bool = Config.default_count_failed_files,
-                   logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
+                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
     num_files = len(links)
 
     if num_files > 1:
@@ -96,7 +96,7 @@ def download(project_files: pd.DataFrame,
              file_name_column: str = Config.default_file_name_column,
              download_link_column: str = Config.default_download_link_column,
              downloaded_files_column: str = Config.default_downloaded_files_column,
-             logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+             logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     filtered_files = formats.filter_files_df(files_df=project_files,
                                              file_name_column=file_name_column,
                                              file_extensions=valid_file_extensions,

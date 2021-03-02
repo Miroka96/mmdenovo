@@ -43,7 +43,7 @@ def denumpyfy(element: Union[np.int64, np.float64, int, str, float, dict, list, 
     return _denumpyfy(element)
 
 
-def ensure_dir_exists(directory: str, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+def ensure_dir_exists(directory: str, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     """Ensure the existence of a given directory (path) by creating it/them if they do not exist yet."""
     if len(directory) == 0:
         return

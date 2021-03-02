@@ -187,4 +187,4 @@ def create_logger(name: str,
         return logger
 
 
-DUMMY_LOGGER: DummyLogger = DummyLogger(send_welcome=False)
+DEFAULT_LOGGER: Logger = DummyLogger(send_welcome=False)

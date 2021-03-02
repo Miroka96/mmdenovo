@@ -219,14 +219,14 @@ class Config:
 
         self.commands = utils.deduplicate_list(args.command)
 
-    def require_pride_project(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def require_pride_project(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.pride_project is not None, Config._pride_project_parameter_str + " is missing")
         logger.assert_true(len(self.pride_project) > 0, Config._pride_project_parameter_str + " must not be empty")
 
-    def validate_arguments(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
 
-    def check(self, logger: log.Logger = log.DUMMY_LOGGER) -> None:
+    def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils
         utils.ensure_dir_exists(self.storage_dir, logger=logger)

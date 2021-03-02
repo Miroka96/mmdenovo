@@ -26,7 +26,7 @@ def print_df(df: Optional[pd.DataFrame],
              max_num_files: Optional[int] = None,
              shown_columns: Optional[List[str]] = None,
              urlencode_columns: List[str] = None,
-             logger: log.Logger = log.DUMMY_LOGGER) -> None:
+             logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     if df is None or len(df) == 0:
         logger.debug("There are no entries to be shown")
         return

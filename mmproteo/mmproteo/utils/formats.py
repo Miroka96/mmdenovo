@@ -13,7 +13,7 @@ from mmproteo.utils import log, utils, visualization
 from mmproteo.utils.config import Config
 
 
-def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DUMMY_LOGGER) \
+def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DEFAULT_LOGGER) \
         -> List[Dict[str, Any]]:
     logger.debug("Iterator type = " + str(type(iterator)))
     entries = list(iterator)
@@ -23,25 +23,25 @@ def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger =
     return entries
 
 
-def read_mgf(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+def read_mgf(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mgf.read(filename), logger=logger)
     extracted_entries = [utils.flatten_dict(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
-def read_mzid(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+def read_mzid(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mzid.read(filename), logger=logger)
     extracted_entries = [utils.flatten_dict(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
-def read_mzml(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+def read_mzml(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mzml.read(filename), logger=logger)
     extracted_entries = [utils.flatten_dict(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
-def read_parquet(filename: str, logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+def read_parquet(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     return pd.read_parquet(filename)
 
 
@@ -57,7 +57,7 @@ def get_readable_file_extensions() -> Set[str]:
     return set(_FILE_READING_CONFIG.keys())
 
 
-def read(filename: str, filename_col: Optional[str] = "%s_filename", logger: log.Logger = log.DUMMY_LOGGER) \
+def read(filename: str, filename_col: Optional[str] = "%s_filename", logger: log.Logger = log.DEFAULT_LOGGER) \
         -> pd.DataFrame:
     _, ext = separate_extension(filename=filename, extensions=get_readable_file_extensions())
 
@@ -116,7 +116,7 @@ def separate_extension(filename: str, extensions: Set[str]) -> (str, str):
 
 def extract_file_if_possible(filename: Optional[str],
                              skip_existing: bool = Config.default_skip_existing,
-                             logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+                             logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[str]:
     if filename is None:
         return None
 
@@ -165,7 +165,7 @@ def extract_files(filenames: List[Optional[str]],
                   max_num_files: Optional[int] = None,
                   keep_null_values: bool = Config.default_keep_null_values,
                   pre_filter_files: bool = Config.default_pre_filter_files,
-                  logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+                  logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     if pre_filter_files:
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions=get_extractable_file_extensions(),
@@ -191,7 +191,7 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
                     file_extensions: Optional[Union[List[str], Set[str]]] = None,
                     max_num_files: Optional[int] = None,
                     sort: bool = Config.default_filter_sort,
-                    logger: log.Logger = log.DUMMY_LOGGER) -> Optional[pd.DataFrame]:
+                    logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[pd.DataFrame]:
     if files_df is None:
         return None
 
@@ -237,7 +237,7 @@ def filter_files_list(filenames: List[Optional[str]],
                       keep_null_values: bool = Config.default_keep_null_values,
                       sort: bool = Config.default_filter_sort,
                       drop_duplicates: bool = Config.default_filter_drop_duplicates,
-                      logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+                      logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     """
 
     :param filenames:
@@ -281,7 +281,7 @@ def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
                                   thermo_docker_image: str = Config.default_thermo_docker_image,
                                   thermo_start_container_command_template: str =
                                   Config.default_thermo_start_container_command_template,
-                                  logger: log.Logger = log.DUMMY_LOGGER) -> None:
+                                  logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     subject = "ThermoRawFileParser Docker container"
 
     if utils.is_docker_container_running(thermo_docker_container_name):
@@ -307,7 +307,7 @@ def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
 def stop_thermo_docker_container(thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                                  thermo_stop_container_command_template: str =
                                  Config.default_thermo_stop_container_command_template,
-                                 logger: log.Logger = log.DUMMY_LOGGER) -> None:
+                                 logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     subject = "ThermoRawFileParser Docker container"
 
     if not utils.is_docker_container_running(thermo_docker_container_name):
@@ -342,7 +342,7 @@ def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Conf
                                        separator=separator)
 
 
-def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DUMMY_LOGGER) -> Optional[NoReturn]:
+def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
     logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
                        "Invalid output format '%s'. Currently allowed formats are: [%s]"
                        % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
@@ -353,7 +353,7 @@ def convert_raw_file(filename: Optional[str],
                      skip_existing: bool = Config.default_skip_existing,
                      thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                      thermo_exec_command: str = Config.default_thermo_exec_command,
-                     logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+                     logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[str]:
     assert_valid_thermo_output_format(output_format=output_format, logger=logger)
 
     if filename is None:
@@ -399,7 +399,7 @@ def convert_raw_files(filenames: List[Optional[str]],
                       pre_filter_files: bool = Config.default_pre_filter_files,
                       thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
                       thermo_exec_command: str = Config.default_thermo_exec_command,
-                      logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+                      logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     assert_valid_thermo_output_format(output_format=output_format, logger=logger)
 
     if pre_filter_files:
@@ -429,7 +429,7 @@ def convert_raw_files(filenames: List[Optional[str]],
 
 def convert_mgf_file_to_parquet(filename: Optional[str],
                                 skip_existing: bool = Config.default_skip_existing,
-                                logger: log.Logger = log.DUMMY_LOGGER) -> Optional[str]:
+                                logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[str]:
     if filename is None:
         return None
 
@@ -460,7 +460,7 @@ def _process_files(filenames: List[Optional[str]],
                    action_name: str,
                    max_num_files: Optional[int] = None,
                    keep_null_values: bool = Config.default_keep_null_values,
-                   logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     files = [file for file in filenames if file is not None]
     if not keep_null_values:
         filenames = files
@@ -511,7 +511,7 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  max_num_files: Optional[int] = None,
                                  keep_null_values: bool = Config.default_keep_null_values,
                                  pre_filter_files: bool = Config.default_pre_filter_files,
-                                 logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
+                                 logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     if pre_filter_files:
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions={"mgf"},
@@ -538,7 +538,7 @@ def merge_mzml_and_mzid_dfs(mzml_df: pd.DataFrame,
                             mzid_df: pd.DataFrame,
                             mzml_key_columns: List[str] = None,
                             mzid_key_columns: List[str] = None,
-                            logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+                            logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     if mzml_key_columns is None:
         mzml_key_columns = Config.default_mzml_key_columns
     if mzid_key_columns is None:
@@ -572,7 +572,7 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
                               mzid_filename: str,
                               mzml_key_columns: Optional[List[str]] = None,
                               mzid_key_columns: Optional[List[str]] = None,
-                              logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
+                              logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     if mzml_key_columns is None:
         mzml_key_columns = Config.default_mzml_key_columns
     if mzid_key_columns is None:
@@ -598,7 +598,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
                                          target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
-                                         logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
+                                         logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
     filenames_and_extensions = [(filename, separate_extension(filename=filename, extensions={"mzml", "mzid"}))
                                 for filename in filenames if filename is not None]
     filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if
