@@ -134,6 +134,10 @@ dmypy.json
 pride/
 *.mgf
 *.raw
+*.mzML
+*.mzid
+*.parquet
+*.gz
 datasets/*
 dumps/
 .ipynb_checkpoints/

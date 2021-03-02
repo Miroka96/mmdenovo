@@ -1,11 +1,13 @@
-from typing import Optional, List
+from typing import Optional, List, Set
+
 import pandas as pd
 import wget
 import os
-from mmproteo.utils import log, formats, pride
+from mmproteo.utils import log, formats
+from mmproteo.utils.config import Config
 
 
-def download_file(link: str, skip_existing: bool = True) -> (str, str):
+def download_file(link: str, skip_existing: bool = Config.default_skip_existing) -> (str, str):
     filename = link.split("/")[-1]
     downloaded_file_name = None
 
@@ -36,12 +38,16 @@ def download_file(link: str, skip_existing: bool = True) -> (str, str):
 
 
 def download_files(links: List[str],
-                   skip_existing: bool = True,
-                   count_failed_files: bool = False,
-                   logger: log.Logger = log.DUMMY_LOGGER) -> List[str]:
+                   skip_existing: bool = Config.default_skip_existing,
+                   count_failed_files: bool = Config.default_count_failed_files,
+                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
     num_files = len(links)
 
-    logger.info("Downloading %d files" % num_files)
+    if num_files > 1:
+        plural_s = "s"
+    else:
+        plural_s = ""
+    logger.info(f"Downloading {num_files} file{plural_s}")
 
     files_downloaded_count = 0
     files_processed = 1
@@ -73,41 +79,40 @@ def download_files(links: List[str],
         if download_succeeded or count_failed_files:
             files_processed += 1
 
-    logger.info("Finished downloading %d files" % files_downloaded_count)
+    if files_downloaded_count > 1:
+        plural_s = "s"
+    else:
+        plural_s = ""
+    logger.info(f"Finished downloading {files_downloaded_count} file{plural_s}")
     return downloaded_files_names
 
 
-def extract_files(filenames: List[Optional[str]],
-                  skip_existing: bool = True,
-                  logger: log.Logger = log.DUMMY_LOGGER) -> List[Optional[str]]:
-    return [formats.extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
-            for filename in filenames]
-
-
 def download(project_files: pd.DataFrame,
-             valid_file_extensions: set,
-             max_num_files: Optional[int],
-             download_dir: str,
-             skip_existing: bool,
-             extract: bool,
-             count_failed_files: bool,
-             logger: log.Logger = log.DUMMY_LOGGER) -> pd.DataFrame:
-    filtered_files = pride.filter_files(files_df=project_files,
-                                        file_extensions=valid_file_extensions,
-                                        max_num_files=max_num_files,
-                                        logger=logger)
+             valid_file_extensions: Optional[Set[str]] = None,
+             max_num_files: Optional[int] = None,
+             download_dir: str = Config.default_storage_dir,
+             skip_existing: bool = Config.default_skip_existing,
+             count_failed_files: bool = Config.default_count_failed_files,
+             file_name_column: str = Config.default_file_name_column,
+             download_link_column: str = Config.default_download_link_column,
+             downloaded_files_column: str = Config.default_downloaded_files_column,
+             logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
+    filtered_files = formats.filter_files_df(files_df=project_files,
+                                             file_name_column=file_name_column,
+                                             file_extensions=valid_file_extensions,
+                                             max_num_files=max_num_files,
+                                             sort=True,
+                                             logger=logger)
+    logger.assert_true(download_link_column in filtered_files.columns,
+                       "Could not find column '%s' in filtered_files dataframe" % download_link_column)
+
     initial_directory = os.getcwd()
     os.chdir(download_dir)
 
-    filtered_files['downloaded_files'] = download_files(links=filtered_files.downloadLink,
-                                                        skip_existing=skip_existing,
-                                                        count_failed_files=count_failed_files,
-                                                        logger=logger)
-
-    if extract:
-        filtered_files['extracted_files'] = extract_files(filenames=filtered_files.downloaded_files,
-                                                          skip_existing=skip_existing,
-                                                          logger=logger)
+    filtered_files[downloaded_files_column] = download_files(links=filtered_files[download_link_column],
+                                                             skip_existing=skip_existing,
+                                                             count_failed_files=count_failed_files,
+                                                             logger=logger)
 
     os.chdir(initial_directory)
     return filtered_files

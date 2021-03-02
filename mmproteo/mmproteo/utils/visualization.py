@@ -1,7 +1,7 @@
 import json
 from urllib.parse import quote
 
-from mmproteo.utils import log
+from mmproteo.utils import log, utils
 from typing import Optional, List
 import pandas as pd
 
@@ -22,18 +22,23 @@ def urlencode_df_columns(files_df: pd.DataFrame, columns: List[str], inplace: bo
     return files_df
 
 
-def print_df(df: pd.DataFrame,
+def print_df(df: Optional[pd.DataFrame],
              max_num_files: Optional[int] = None,
              shown_columns: Optional[List[str]] = None,
              urlencode_columns: List[str] = None,
-             logger: log.Logger = log.DUMMY_LOGGER):
+             logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+    if df is None or len(df) == 0:
+        logger.debug("There are no entries to be shown")
+        return
+
     df = df.copy()
 
-    if max_num_files is not None and max_num_files != 0:
+    if max_num_files is not None and max_num_files != 0 and max_num_files < len(df):
         df = df[:max_num_files]
         logger.info("Showing only the top %d entries because of the max_num_files parameter" % max_num_files)
     if shown_columns is not None and shown_columns != []:
         columns = [col for col in shown_columns if col in df.columns]
+        columns = utils.deduplicate_list(columns)
         df = df[columns]
         logger.info("Limiting the shown columns according to the shown_columns parameter")
 
@@ -49,4 +54,7 @@ def print_df(df: pd.DataFrame,
 def pretty_print_json(dic: Optional[dict]) -> str:
     if dic is None:
         return ""
-    return json.dumps(dic, indent=4)
+    try:
+        return json.dumps(dic, indent=4)
+    except TypeError:
+        return str(dic)

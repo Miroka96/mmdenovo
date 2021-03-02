@@ -1,0 +1,10 @@
+usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
+                [--count-failed-files] [-d STORAGE_DIR] [-l LOG_FILE]
+                [--log-to-stdout] [-c SHOWN_COLUMNS]
+                [-t VALID_FILE_EXTENSIONS] [-e] [-v] [-f] [--version]
+                [-i {1,2}] [--dummy-logger]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}]
+                [--thermo-keep-running]
+                {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
+                [{convertraw,download,extract,info,list,mgf2parquet,mz2parquet} ...]
+mmproteo: error: the following arguments are required: command
