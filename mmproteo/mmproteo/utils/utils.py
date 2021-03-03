@@ -1,8 +1,9 @@
 import os
-from typing import List, Hashable, Iterable, Union, Any, Optional
+from typing import Any, Hashable, Iterable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+
 from mmproteo.utils import log
 
 

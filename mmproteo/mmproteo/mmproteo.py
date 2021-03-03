@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-import sys
 import os
+import sys
 
-from mmproteo.utils import log, commands
+from mmproteo.utils import commands, log
 from mmproteo.utils.config import Config
 
 APPLICATION_NAME: str = "MMProteo"

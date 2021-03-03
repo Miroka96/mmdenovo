@@ -1,10 +1,9 @@
-import time
-from typing import Optional, Set, Callable, Union, Any, Dict, List, Iterable, NoReturn
-
-from pyteomics import mgf, mzid, mzml
-import pandas as pd
 import os
+import time
+from typing import Any, Callable, Dict, Iterable, List, NoReturn, Optional, Set, Union
 
+import pandas as pd
+from pyteomics import mgf, mzid, mzml
 from pyteomics.mgf import MGFBase
 from pyteomics.mzid import MzIdentML
 from pyteomics.mzml import MzML
@@ -342,7 +341,8 @@ def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Conf
                                        separator=separator)
 
 
-def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
+def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[
+    NoReturn]:
     logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
                        "Invalid output format '%s'. Currently allowed formats are: [%s]"
                        % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))

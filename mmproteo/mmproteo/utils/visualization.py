@@ -1,9 +1,10 @@
 import json
+from typing import List, Optional
 from urllib.parse import quote
 
-from mmproteo.utils import log, utils
-from typing import Optional, List
 import pandas as pd
+
+from mmproteo.utils import log, utils
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)

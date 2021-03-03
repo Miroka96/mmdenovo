@@ -1,10 +1,11 @@
-usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
-                [--count-failed-files] [-d STORAGE_DIR] [-l LOG_FILE]
-                [--log-to-stdout] [-c SHOWN_COLUMNS]
-                [-t VALID_FILE_EXTENSIONS] [-e] [-v] [-f] [--version]
-                [-i {1,2}] [--dummy-logger]
+usage: mmproteo [--count-failed-files] [--dummy-logger] [--help]
+                [--log-file LOG_FILE] [--log-to-stdout]
+                [--max-num-files MAX_NUM_FILES] [--no-fail-early]
+                [--no-skip-existing] [--pride-project PRIDE_PROJECT]
+                [--pride-version {1,2}] [--shown-columns SHOWN_COLUMNS]
+                [--storage-dir STORAGE_DIR] [--thermo-keep-running]
                 [--thermo-output-format {imzml,mgf,mzml,parquet}]
-                [--thermo-keep-running]
-                {convertraw,download,extract,info,list,mgf2parquet,mz2parquet}
-                [{convertraw,download,extract,info,list,mgf2parquet,mz2parquet} ...]
-mmproteo: error: the following arguments are required: command
+                [--valid-file-extensions VALID_FILE_EXTENSIONS] [--verbose]
+                [--version]
+                COMMAND [COMMAND ...]
+mmproteo: error: the following arguments are required: COMMAND

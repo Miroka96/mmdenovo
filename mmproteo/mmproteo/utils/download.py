@@ -1,9 +1,10 @@
-from typing import Optional, List, Set
+import os
+from typing import List, Optional, Set
 
 import pandas as pd
 import wget
-import os
-from mmproteo.utils import log, formats
+
+from mmproteo.utils import formats, log
 from mmproteo.utils.config import Config
 
 

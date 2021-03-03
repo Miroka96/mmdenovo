@@ -1,13 +1,14 @@
 import json
 from json import JSONDecodeError
-from typing import Optional, List, Set, Dict, Iterable
+from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
 import requests
-from mmproteo.utils import log, download as dl, utils
+from requests import Response
+
+from mmproteo.utils import download as dl, log, utils
 from mmproteo.utils.config import Config
 from mmproteo.utils.visualization import pretty_print_json
-from requests import Response
 
 
 class AbstractPrideApi:
@@ -40,7 +41,8 @@ class AbstractPrideApi:
         logger.warning("%s (%s) -> %s" % (message, developer_message, more_info_url))
 
     @staticmethod
-    def _handle_unknown_response(status_code: int, response_dict: dict, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+    def _handle_unknown_response(status_code: int, response_dict: dict,
+                                 logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.warning("Received unknown response code %d or content" % status_code)
         logger.debug(pretty_print_json(response_dict))
 

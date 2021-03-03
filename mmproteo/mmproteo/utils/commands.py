@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from mmproteo.utils import log, pride, visualization, formats, utils
+from mmproteo.utils import formats, log, pride, utils, visualization
 from mmproteo.utils.config import Config
 
 

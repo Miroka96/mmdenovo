@@ -1,9 +1,11 @@
 import argparse
-from typing import Optional, List, Iterable, Any, Union
+from operator import attrgetter
+from typing import Any, List, Optional, Union
 
 import pandas as pd
-from mmproteo.utils import log
+
 from mmproteo._version import get_versions
+from mmproteo.utils import log
 
 __version__ = get_versions()['version']
 
@@ -11,6 +13,17 @@ del get_versions
 
 
 class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+
+    def add_arguments(self, actions):
+        actions = sorted(actions, key=attrgetter('option_strings'))
+        super(_MultiLineArgumentDefaultsHelpFormatter, self).add_arguments(actions)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        actions = sorted(actions, key=attrgetter('option_strings'))
+        return super(_MultiLineArgumentDefaultsHelpFormatter, self)._format_usage(usage=usage,
+                                                                                  actions=actions,
+                                                                                  groups=groups,
+                                                                                  prefix=prefix)
 
     def _split_lines(self, text: str, width: int) -> List[str]:
         lines = text.splitlines()
@@ -94,8 +107,8 @@ class Config:
               column_names: Optional[Union[str, List[str]]] = None,
               data_df: pd.DataFrame = None) -> Optional[pd.DataFrame]:
         assert (data_list is not None and column_names is not None and data_df is None) \
-               or (data_list is None and column_names is None), \
-               "data_list and column_names must always be given together, but never at the same time as data_df"
+               or (data_list is None and column_names is None), "data_list and column_names must always be given " \
+                                                                "together, but never at the same time as data_df"
 
         if data_df is None:
             if len(data_list) == 0:
@@ -114,20 +127,21 @@ class Config:
 
     def parse_arguments(self) -> None:
         from mmproteo.utils import commands, pride, utils, formats
-        parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter)
+        parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter, add_help=False)
 
         parser.add_argument("command",
                             nargs='+',
                             choices=commands.DISPATCHER.get_command_names(),
+                            metavar="COMMAND",
                             help="the list of actions to be performed on the repository. " +
                                  "Every action can only occur once. " +
-                                 "Duplicates are dropped after the first occurrence.\n" +
+                                 "Duplicates are dropped after the first occurrence.\n \n" +
                                  commands.DISPATCHER.get_command_descriptions_str())
-        parser.add_argument("-p", Config._pride_project_parameter_str,
+        parser.add_argument(Config._pride_project_parameter_str, "-p",
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
                                  "For some commands, this parameter is required.")
-        parser.add_argument("-n", "--max-num-files",
+        parser.add_argument("--max-num-files", "-n",
                             default=self.max_num_files,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
@@ -135,45 +149,49 @@ class Config:
                             action="store_false",
                             help="Count failed files and do not just skip them. " +
                                  "This is relevant for the max-num-files parameter.")
-        parser.add_argument("-d", "--storage-dir",
+        parser.add_argument("--storage-dir", "-d",
                             default=self.default_storage_dir,
                             help="the name of the directory, in which the downloaded files and the log file will be "
                                  "stored.")
-        parser.add_argument("-l", "--log-file",
+        parser.add_argument("--log-file", "-l",
                             default=self.default_log_file,
                             help="the name of the log file, relative to the download directory. "
                                  "Set it to an empty string (\"\") to disable file logging.")
         parser.add_argument("--log-to-stdout",
                             action="store_true",
                             help="Log to stdout instead of stderr.")
-        parser.add_argument("-c", "--shown-columns",
+        parser.add_argument("--shown-columns", "-c",
                             default="",
                             type=lambda s: [col for col in s.split(",") if len(col) > 0],
                             help="a list of comma-separated column names. Some commands show their results as tables, "
                                  "so their output columns will be limited to those in this list. An empty list "
                                  "deactivates filtering. Capitalization matters.")
-        parser.add_argument("-t", "--valid-file-extensions",
+        parser.add_argument("--valid-file-extensions", "-t",
                             default="",
                             type=lambda s: {ext.lower() for ext in s.split(',') if len(ext) > 0},
                             help="a list of comma-separated allowed file extensions to filter files for. " +
                                  "An empty list deactivates filtering. "
                                  "Capitalization does not matter.")
-        parser.add_argument("-e", "--no-skip-existing",
+        parser.add_argument("--no-skip-existing", "-e",
                             action="store_true",
                             help="Do not skip existing files.")
         # store_true turns "verbose" into a flag:
         # The existence of "verbose" equals True, the lack of existence equals False
-        parser.add_argument("-v", "--verbose",
+        parser.add_argument("--verbose", "-v",
                             action="store_true",
                             help="Increase output verbosity to debug level.")
-        parser.add_argument("-f", "--no-fail-early",
+        parser.add_argument("--no-fail-early", "-f",
                             action="store_true",
                             help="Do not fail already on warnings.")
+        parser.add_argument('--help', "-h",
+                            action='help',
+                            default=argparse.SUPPRESS,
+                            help='Show this help message and exit.')
         parser.add_argument('--version',
                             action='version',
                             version='%(prog)s ' + __version__,
                             help="Show the version of this software.")
-        parser.add_argument('-i', '--pride-version',
+        parser.add_argument('--pride-version', '-i',
                             choices=pride.get_pride_api_versions(),
                             action="append",
                             default=self.pride_versions,
