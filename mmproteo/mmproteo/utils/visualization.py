@@ -27,6 +27,7 @@ def print_df(df: Optional[pd.DataFrame],
              max_num_files: Optional[int] = None,
              shown_columns: Optional[List[str]] = None,
              urlencode_columns: List[str] = None,
+             reset_index: bool = True,
              logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     if df is None or len(df) == 0:
         logger.debug("There are no entries to be shown")
@@ -45,6 +46,9 @@ def print_df(df: Optional[pd.DataFrame],
 
     if urlencode_columns is not None:
         df = urlencode_df_columns(df, urlencode_columns, inplace=False)
+
+    if reset_index:
+        df = df.reset_index(drop=True)
 
     try:
         print(df)
