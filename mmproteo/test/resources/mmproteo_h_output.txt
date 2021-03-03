@@ -1,11 +1,11 @@
-usage: mmproteo [--count-failed-files] [--dummy-logger] [--help]
-                [--log-file LOG_FILE] [--log-to-stdout]
-                [--max-num-files MAX_NUM_FILES] [--no-fail-early]
-                [--no-skip-existing] [--pride-project PRIDE_PROJECT]
-                [--pride-version {1,2}] [--shown-columns SHOWN_COLUMNS]
-                [--storage-dir STORAGE_DIR] [--thermo-keep-running]
-                [--thermo-output-format {imzml,mgf,mzml,parquet}]
-                [--valid-file-extensions VALID_FILE_EXTENSIONS] [--verbose]
+usage: mmproteo [--count-failed-files] [--dummy-logger]
+                [--file-extensions EXT] [--filter COLUMN=REGEX] [--help]
+                [--log-file FILE] [--log-to-stdout] [--max-num-files N]
+                [--no-fail-early] [--no-skip-existing]
+                [--pride-project PROJECT] [--pride-version {1,2}]
+                [--shown-columns COLUMNS] [--storage-dir DIR]
+                [--thermo-keep-running]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}] [--verbose]
                 [--version]
                 COMMAND [COMMAND ...]
 
@@ -45,19 +45,34 @@ optional arguments:
                         True)
   --dummy-logger        Use a simpler log format and log to stdout. (default:
                         False)
+  --file-extensions EXT, -e EXT
+                        a list of comma-separated allowed file extensions to
+                        filter files for. An empty list deactivates filtering.
+                        Capitalization does not matter. (default: )
+  --filter COLUMN=REGEX, -f COLUMN=REGEX
+                        a filter condition for file filtering. The condition
+                        must be of the form 'columnName=valueRegex'. The
+                        column name must not (yet) contain equality signs. The
+                        value will be interpreted using Python's rules for
+                        regular expressions (from the Python 're' package).
+                        This parameter can be given multiple times to enforce
+                        multiple filters simultaneously, meaning the filters
+                        will be logically connected using the boolean 'and'.
+                        (default: [])
   --help, -h            Show this help message and exit.
-  --log-file LOG_FILE, -l LOG_FILE
+  --log-file FILE, -l FILE
                         the name of the log file, relative to the download
                         directory. Set it to an empty string ("") to disable
                         file logging. (default: mmproteo.log)
   --log-to-stdout       Log to stdout instead of stderr. (default: False)
-  --max-num-files MAX_NUM_FILES, -n MAX_NUM_FILES
+  --max-num-files N, -n N
                         the maximum number of files to be downloaded. Set it
                         to '0' to download all files. (default: 0)
-  --no-fail-early, -f   Do not fail already on warnings. (default: False)
-  --no-skip-existing, -e
-                        Do not skip existing files. (default: False)
-  --pride-project PRIDE_PROJECT, -p PRIDE_PROJECT
+  --no-fail-early       Do not fail commands already on failed assertions. The
+                        code will run until a real exception is encountered or
+                        it even succeeds. (default: False)
+  --no-skip-existing    Do not skip existing files. (default: False)
+  --pride-project PROJECT, -p PROJECT
                         the name of the PRIDE project, e.g. 'PXD010000' from '
                         https://www.ebi.ac.uk/pride/ws/archive/peptide/list/pr
                         oject/PXD010000'. For some commands, this parameter is
@@ -73,13 +88,13 @@ optional arguments:
                         dropped after the first occurrence. An empty list
                         (default) uses all api versions in the following
                         order: ["2", "1"] (default: [])
-  --shown-columns SHOWN_COLUMNS, -c SHOWN_COLUMNS
+  --shown-columns COLUMNS, -c COLUMNS
                         a list of comma-separated column names. Some commands
                         show their results as tables, so their output columns
                         will be limited to those in this list. An empty list
                         deactivates filtering. Capitalization matters.
                         (default: )
-  --storage-dir STORAGE_DIR, -d STORAGE_DIR
+  --storage-dir DIR, -d DIR
                         the name of the directory, in which the downloaded
                         files and the log file will be stored. (default: .)
   --thermo-keep-running
@@ -90,10 +105,6 @@ optional arguments:
                         the output format into which the raw file will be
                         converted. This parameter only applies to the
                         convertraw command. (default: mgf)
-  --valid-file-extensions VALID_FILE_EXTENSIONS, -t VALID_FILE_EXTENSIONS
-                        a list of comma-separated allowed file extensions to
-                        filter files for. An empty list deactivates filtering.
-                        Capitalization does not matter. (default: )
   --verbose, -v         Increase output verbosity to debug level. (default:
                         False)
   --version             Show the version of this software.

@@ -1,6 +1,6 @@
 import argparse
 from operator import attrgetter
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
@@ -47,6 +47,7 @@ class Config:
 
     default_storage_dir: str = "."
     default_log_file: str = "mmproteo.log"
+
     default_file_name_column: str = "fileName"
     default_download_link_column: str = 'downloadLink'
     default_downloaded_files_column: str = 'downloaded_files'
@@ -54,6 +55,17 @@ class Config:
     default_converted_raw_files_column: str = 'converted_raw_files'
     default_mzmlid_parquet_files_column: str = 'converted_mzmlid_parquet_files'
     default_mgf_parquet_files_column: str = 'converted_mgf_parquet_files'
+
+    special_column_names: Set[str] = {
+        default_file_name_column,
+        default_download_link_column,
+        default_downloaded_files_column,
+        default_extracted_files_column,
+        default_converted_raw_files_column,
+        default_mzmlid_parquet_files_column,
+        default_mgf_parquet_files_column
+    }
+
     default_thermo_docker_container_name: str = "thermorawfileparser"
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.3.2--h1341992_1"
     default_thermo_start_container_command_template: str = \
@@ -89,7 +101,8 @@ class Config:
         self.shown_columns: List[str] = []
         self.commands: Optional[List[str]] = None
         self.pride_versions: List[str] = []
-        self.fail_early: bool = False
+        self.filters: List[Tuple[str, str]] = []
+        self.fail_early: bool = True
         self.terminate_process: bool = False
         self.thermo_output_format: str = self.default_thermo_output_format
         self.thermo_keep_container_running: bool = self.default_thermo_keep_container_running
@@ -137,52 +150,59 @@ class Config:
                                  "Every action can only occur once. " +
                                  "Duplicates are dropped after the first occurrence.\n \n" +
                                  commands.DISPATCHER.get_command_descriptions_str())
-        parser.add_argument(Config._pride_project_parameter_str, "-p",
+        parser.add_argument(self._pride_project_parameter_str, "-p",
+                            metavar="PROJECT",
                             help="the name of the PRIDE project, e.g. 'PXD010000' " +
                                  "from 'https://www.ebi.ac.uk/pride/ws/archive/peptide/list/project/PXD010000'. " +
                                  "For some commands, this parameter is required.")
         parser.add_argument("--max-num-files", "-n",
+                            metavar="N",
                             default=self.max_num_files,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
         parser.add_argument("--count-failed-files",
-                            action="store_false",
+                            action="store_" + str(self.count_failed_files).lower(),
                             help="Count failed files and do not just skip them. " +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("--storage-dir", "-d",
-                            default=self.default_storage_dir,
+                            metavar="DIR",
+                            default=self.storage_dir,
                             help="the name of the directory, in which the downloaded files and the log file will be "
                                  "stored.")
         parser.add_argument("--log-file", "-l",
-                            default=self.default_log_file,
+                            metavar="FILE",
+                            default=self.log_file,
                             help="the name of the log file, relative to the download directory. "
                                  "Set it to an empty string (\"\") to disable file logging.")
         parser.add_argument("--log-to-stdout",
-                            action="store_true",
+                            action="store_" + str(not self.log_to_stdout).lower(),
                             help="Log to stdout instead of stderr.")
         parser.add_argument("--shown-columns", "-c",
+                            metavar="COLUMNS",
                             default="",
                             type=lambda s: [col for col in s.split(",") if len(col) > 0],
                             help="a list of comma-separated column names. Some commands show their results as tables, "
                                  "so their output columns will be limited to those in this list. An empty list "
                                  "deactivates filtering. Capitalization matters.")
-        parser.add_argument("--valid-file-extensions", "-t",
+        parser.add_argument("--file-extensions", "-e",
+                            metavar="EXT",
                             default="",
                             type=lambda s: {ext.lower() for ext in s.split(',') if len(ext) > 0},
                             help="a list of comma-separated allowed file extensions to filter files for. " +
                                  "An empty list deactivates filtering. "
                                  "Capitalization does not matter.")
-        parser.add_argument("--no-skip-existing", "-e",
-                            action="store_true",
+        parser.add_argument("--no-skip-existing",
+                            action="store_" + str(self.skip_existing).lower(),
                             help="Do not skip existing files.")
         # store_true turns "verbose" into a flag:
         # The existence of "verbose" equals True, the lack of existence equals False
         parser.add_argument("--verbose", "-v",
-                            action="store_true",
+                            action="store_" + str(not self.verbose).lower(),
                             help="Increase output verbosity to debug level.")
-        parser.add_argument("--no-fail-early", "-f",
-                            action="store_true",
-                            help="Do not fail already on warnings.")
+        parser.add_argument("--no-fail-early",
+                            action="store_" + str(self.fail_early).lower(),
+                            help="Do not fail commands already on failed assertions. The code will run until "
+                                 "a real exception is encountered or it even succeeds.")
         parser.add_argument('--help', "-h",
                             action='help',
                             default=argparse.SUPPRESS,
@@ -204,7 +224,7 @@ class Config:
                                  "An empty list (default) uses all api versions in the following order: [%s]" %
                                  pride.get_string_of_pride_api_versions())
         parser.add_argument("--dummy-logger",
-                            action="store_true",
+                            action="store_" + str(not self.dummy_logger).lower(),
                             help="Use a simpler log format and log to stdout.")
         parser.add_argument("--thermo-output-format",
                             default=self.thermo_output_format,
@@ -212,9 +232,20 @@ class Config:
                             help="the output format into which the raw file will be converted. This parameter only "
                                  f"applies to the {commands.ConvertRawCommand().get_command()} command.")
         parser.add_argument("--thermo-keep-running",
-                            action="store_true",
+                            action="store_" + str(not self.thermo_keep_container_running).lower(),
                             help="Keep the ThermoRawFileParser Docker container running after conversion. This can "
                                  "speed up batch processing and ease debugging.")
+        parser.add_argument('--filter', '-f',
+                            metavar="COLUMN=REGEX",
+                            action="append",
+                            type=lambda s: s.split("=", 1),
+                            default=self.filters,
+                            help="a filter condition for file filtering. The condition must be of the form "
+                                 "'columnName=valueRegex'. The column name must not (yet) contain equality signs. "
+                                 "The value will be interpreted using Python's rules for regular expressions (from the "
+                                 "Python 're' package). This parameter can be given multiple times to enforce multiple "
+                                 "filters simultaneously, meaning the filters will be logically connected using the "
+                                 "boolean 'and'.")
 
         args = parser.parse_args()
 
@@ -224,13 +255,14 @@ class Config:
         self.storage_dir = args.storage_dir
         self.log_file = args.log_file
         self.log_to_stdout = args.log_to_stdout
-        self.valid_file_extensions = args.valid_file_extensions
+        self.valid_file_extensions = args.file_extensions
         self.skip_existing = (not args.no_skip_existing)
         self.verbose = args.verbose
         self.dummy_logger = args.dummy_logger
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
+        self.filters = args.filter
         self.thermo_output_format = args.thermo_output_format
         self.thermo_keep_container_running = args.thermo_keep_running
 
@@ -243,6 +275,9 @@ class Config:
     def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
+        for file_filter in self.filters:
+            logger.assert_true(len(file_filter) == 2, "filters must contain an equality sign to separate column name "
+                                                      "and value regex")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils

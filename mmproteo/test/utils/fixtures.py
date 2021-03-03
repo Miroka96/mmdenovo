@@ -31,6 +31,6 @@ def run_with_datasets():
 
     current_working_dir = os.getcwd()
     os.chdir(DEFAULT_PROJECT_DATASET_PATH)
-    os.system("mmproteo -p PXD010000 -t mzid,mzml -n 2 download extract")
+    os.system("mmproteo -p PXD010000 -e mzid,mzml -n 2 download extract")
     os.remove(Config.default_log_file)
     os.chdir(current_working_dir)

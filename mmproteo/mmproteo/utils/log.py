@@ -20,7 +20,7 @@ class LoggedErrorException(Exception):
 class Logger:
     def __init__(self,
                  logger: Optional[logging.Logger],
-                 fail_early: bool = False,
+                 fail_early: bool = True,
                  terminate_process: bool = False,
                  verbose: Optional[bool] = None):
         assert logger is None or verbose is None, "cannot use 'logger' and 'verbose' parameter simultaneously. " \
