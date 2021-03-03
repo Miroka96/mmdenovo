@@ -1,11 +1,12 @@
 import argparse
+import re
 from operator import attrgetter
 from typing import Any, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
 from mmproteo._version import get_versions
-from mmproteo.utils import log
+from mmproteo.utils import log, utils
 
 __version__ = get_versions()['version']
 
@@ -43,10 +44,12 @@ class _MultiLineArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpForma
 
 
 class Config:
+    default_application_name = "mmproteo"
+
     _pride_project_parameter_str: str = "--pride-project"
 
     default_storage_dir: str = "."
-    default_log_file: str = "mmproteo.log"
+    default_log_file: str = default_application_name + ".log"
 
     default_file_name_column: str = "fileName"
     default_download_link_column: str = 'downloadLink'
@@ -80,6 +83,8 @@ class Config:
     default_skip_existing: bool = True
     default_filter_sort: bool = True
     default_filter_drop_duplicates: bool = True
+    default_filter_separator_regex: str = "[=!]="
+    default_filter_or_separator: str = " or "
     default_count_failed_files: bool = False
     default_keep_null_values: bool = False
     default_pre_filter_files: bool = True
@@ -110,6 +115,13 @@ class Config:
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
         self.project_files: Optional[pd.DataFrame] = None
+
+    @staticmethod
+    def get_string_of_special_column_names(extension_quote: str = default_option_quote,
+                                           separator: str = default_option_separator) -> str:
+        return utils.concat_set_of_options(options=Config.special_column_names,
+                                           option_quote=extension_quote,
+                                           separator=separator)
 
     def clear_cache(self):
         self.processed_files = None
@@ -236,16 +248,32 @@ class Config:
                             help="Keep the ThermoRawFileParser Docker container running after conversion. This can "
                                  "speed up batch processing and ease debugging.")
         parser.add_argument('--filter', '-f',
-                            metavar="COLUMN=REGEX",
+                            metavar=f"COLUMN{self.default_filter_separator_regex}REGEX",
                             action="append",
-                            type=lambda s: s.split("=", 1),
+                            type=lambda and_condition: [re.split(pattern=self.default_filter_separator_regex,
+                                                                 string=or_condition,
+                                                                 maxsplit=1)
+                                                        for or_condition
+                                                        in and_condition.split(self.default_filter_or_separator)],
                             default=self.filters,
                             help="a filter condition for file filtering. The condition must be of the form "
-                                 "'columnName=valueRegex'. The column name must not (yet) contain equality signs. "
+                                 f"'columnName{self.default_filter_separator_regex}valueRegex'. Therefore, the "
+                                 "comparison operator can either be '==' or '!='. "
+                                 "The column name must not contain these character patterns. "
                                  "The value will be interpreted using Python's rules for regular expressions (from the "
                                  "Python 're' package). This parameter can be given multiple times to enforce multiple "
-                                 "filters simultaneously, meaning the filters will be logically connected using the "
-                                 "boolean 'and'.")
+                                 "filters simultaneously, meaning the filters will be logically connected using a "
+                                 "boolean 'and'. Boolean 'or' operations can be specified as "
+                                 f"'{self.default_filter_or_separator}' within any filter parameter, "
+                                 "for example like this (representing (a==1 or b==2) and (c==3 or (not d==4))): "
+                                 f"'{self.default_application_name} -f \"a==1{self.default_filter_or_separator}b==2\" "
+                                 f"-f \"c==3{self.default_filter_or_separator}d!=4\" list'. "
+                                 "A condition can be negated using '!=' instead of '=='. For the filtering process, "
+                                 "the filter columns will be converted to strings. Non-existent columns will be "
+                                 "ignored. Capitalization matters. All these rules add up to a "
+                                 "conjunctive normal form. As some commands can be pipelined to use previous results, "
+                                 "there are also the following special column names available: " +
+                                 f"[{self.get_string_of_special_column_names()}]. An empty list disables this filter.")
 
         args = parser.parse_args()
 
@@ -275,9 +303,10 @@ class Config:
     def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
-        for file_filter in self.filters:
-            logger.assert_true(len(file_filter) == 2, "filters must contain an equality sign to separate column name "
-                                                      "and value regex")
+        for and_condition in self.filters:
+            for or_condition in and_condition:
+                logger.assert_true(len(or_condition) == 2, "filters must contain an equality sign to separate "
+                                                           "column name and value regex")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils
