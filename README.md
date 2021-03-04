@@ -1,8 +1,6 @@
 # MMProteo
 
-Mirko meets Proteomics
-
-
+`Mirko meets Proteomics`
 
 
 ## Getting started
@@ -37,16 +35,14 @@ python setup.py install
 cd mmproteo
 pip install -e .
 ```
+This installation must be repeated whenever new files are created.
 
 ### Running MMProteo
 
 The installations will make `mmproteo` available on your command line (and in your PATH),
-so preferably use this anywhere you want.
+so use this anywhere you want.
 
 Alternatively, you can run the `mmproteo-runner.py` script in the mmproteo directory.
-
-If you are crazy, you can also run the `mmproteo/mmproteo/mmproteo.py` script, but this one is 
-already part of the installed mmproteo package and shouldn't really be used directly.
 
 ### Usage
 
@@ -56,54 +52,136 @@ Currently, the following parameters are available:
 
 ```
 $ mmproteo -h
-usage: mmproteo [-h] [-p PRIDE_PROJECT] [-n MAX_NUM_FILES]
-                [--count-failed-files] [-d STORAGE_DIR] [-l LOG_FILE]
-                [--log-to-stdout] [-t VALID_FILE_EXTENSIONS] [-e] [-x] [-v]
-                [--shown-columns SHOWN_COLUMNS]
-                {download,info,ls} [{download,info,ls} ...]
+usage: mmproteo [--count-failed-files] [--dummy-logger]
+                [--file-extensions EXT] [--filter COLUMN[=!]=REGEX] [--help]
+                [--log-file FILE] [--log-to-stdout] [--max-num-files N]
+                [--no-fail-early] [--no-skip-existing]
+                [--pride-project PROJECT] [--pride-version {1,2}]
+                [--shown-columns COLUMNS] [--storage-dir DIR]
+                [--thermo-keep-running]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}] [--verbose]
+                [--version]
+                COMMAND [COMMAND ...]
 
 positional arguments:
-  {download,info,ls}    the list of actions to be performed on the repository.
+  COMMAND               the list of actions to be performed on the repository.
                         Every action can only occur once. Duplicates are
                         dropped after the first occurrence.
+                        convertraw  : convert all downloaded or extracted raw
+                                      files or, if none were downloaded or
+                                      extracted, those raw files in the data
+                                      directory, into the given thermo output
+                                      format using the ThermoRawFileParser.
+                                      This command requires an accessible
+                                      Docker installation.
+                        download    : download files from a given project
+                        extract     : extract all downloaded archive files or,
+                                      if none were downloaded, those in the
+                                      data directory. Currently, the following
+                                      archive formats are supported: "gz",
+                                      "zip"
+                        info        : request project information for a given
+                                      project
+                        list        : list files and their attributes in a
+                                      given project
+                        mgf2parquet : convert all downloaded, extracted, or
+                                      converted mgf files into parquet format,
+                                      or, if no files were previously
+                                      processed, convert the mgf files in the
+                                      data directory
+                        mz2parquet  : merge and convert all downloaded or
+                                      extracted mzid and mzml files into
+                                      parquet format or, if no files were
+                                      previously processed, merge and convert
+                                      the files in the data directory.
 
 optional arguments:
-  -h, --help            show this help message and exit
-  -p PRIDE_PROJECT, --pride-project PRIDE_PROJECT
-                        the name of the PRIDE project, e.g. 'PXD010000' from '
-                        https://www.ebi.ac.uk/pride/ws/archive/peptide/list/pr
-                        oject/PXD010000'.For some commands, this parameter is
-                        required. (default: None)
-  -n MAX_NUM_FILES, --max-num-files MAX_NUM_FILES
-                        the maximum number of files to be downloaded. Set it
-                        to '0' to download all files. (default: 0)
   --count-failed-files  Count failed files and do not just skip them. This is
                         relevant for the max-num-files parameter. (default:
                         True)
-  -d STORAGE_DIR, --storage-dir STORAGE_DIR
-                        the name of the directory, in which the downloaded
-                        files and the log file will be stored. (default:
-                        ./pride)
-  -l LOG_FILE, --log-file LOG_FILE
-                        the name of the log file, relative to the download
-                        directory. (default: downloader.log)
-  --log-to-stdout       Log to stdout instead of stderr. (default: False)
-  -t VALID_FILE_EXTENSIONS, --valid-file-extensions VALID_FILE_EXTENSIONS
+  --dummy-logger        Use a simpler log format and log to stdout. (default:
+                        False)
+  --file-extensions EXT, -e EXT
                         a list of comma-separated allowed file extensions to
-                        filter files for. An empty list deactivates filtering.
-                        Capitalization does not matter. (default: )
-  -e, --no-skip-existing
-                        Do not skip existing files. (default: False)
-  -x, --no-extract      Do not try to extract downloaded files. (default:
-                        False)
-  -v, --verbose         Increase output verbosity to debug level. (default:
-                        False)
-  --shown-columns SHOWN_COLUMNS
+                        filter files for. Archive extensions will be
+                        automatically appended. An empty list deactivates
+                        filtering. Capitalization does not matter. (default: )
+  --filter COLUMN[=!]=REGEX, -f COLUMN[=!]=REGEX
+                        a filter condition for file filtering. The condition
+                        must be of the form 'columnName[=!]=valueRegex'.
+                        Therefore, the comparison operator can either be '=='
+                        or '!='. The column name must not contain these
+                        character patterns. The value will be interpreted
+                        using Python's rules for regular expressions (from the
+                        Python 're' package). This parameter can be given
+                        multiple times to enforce multiple filters
+                        simultaneously, meaning the filters will be logically
+                        connected using a boolean 'and'. Boolean 'or'
+                        operations can be specified as ' or ' within any
+                        filter parameter, for example like this (representing
+                        (a==1 or b==2) and (c==3 or (not d==4))): 'mmproteo -f
+                        "a==1 or b==2" -f "c==3 or d!=4" list'. A condition
+                        can be negated using '!=' instead of '=='. For the
+                        filtering process, the filter columns will be
+                        converted to strings. Non-existent columns will be
+                        ignored. Capitalization matters. All these rules add
+                        up to a conjunctive normal form. As some commands can
+                        be pipelined to use previous results, there are also
+                        the following special column names available:
+                        ["converted_mgf_parquet_files",
+                        "converted_mzmlid_parquet_files",
+                        "converted_raw_files", "downloadLink",
+                        "downloaded_files", "extracted_files", "fileName"]. An
+                        empty list disables this filter. (default: [])
+  --help, -h            Show this help message and exit.
+  --log-file FILE, -l FILE
+                        the name of the log file, relative to the download
+                        directory. Set it to an empty string ("") to disable
+                        file logging. (default: mmproteo.log)
+  --log-to-stdout       Log to stdout instead of stderr. (default: False)
+  --max-num-files N, -n N
+                        the maximum number of files to be downloaded. Set it
+                        to '0' to download all files. (default: 0)
+  --no-fail-early       Do not fail commands already on failed assertions. The
+                        code will run until a real exception is encountered or
+                        it even succeeds. (default: False)
+  --no-skip-existing    Do not skip existing files. (default: False)
+  --pride-project PROJECT, -p PROJECT
+                        the name of the PRIDE project, e.g. 'PXD010000' from '
+                        https://www.ebi.ac.uk/pride/ws/archive/peptide/list/pr
+                        oject/PXD010000'. For some commands, this parameter is
+                        required. (default: None)
+  --pride-version {1,2}, -i {1,2}
+                        an API version for the PRIDE interactions. Only the
+                        specified versions will be used. This parameter can be
+                        given multiple times to allow multiple different API
+                        versions, one version per parameter appearance. The
+                        order of occurring API versions will be considered
+                        until the first API request fulfills its job. Every
+                        version should appear at most once. Duplicates are
+                        dropped after the first occurrence. An empty list
+                        (default) uses all api versions in the following
+                        order: ["2", "1"] (default: [])
+  --shown-columns COLUMNS, -c COLUMNS
                         a list of comma-separated column names. Some commands
                         show their results as tables, so their output columns
                         will be limited to those in this list. An empty list
                         deactivates filtering. Capitalization matters.
                         (default: )
+  --storage-dir DIR, -d DIR
+                        the name of the directory, in which the downloaded
+                        files and the log file will be stored. (default: .)
+  --thermo-keep-running
+                        Keep the ThermoRawFileParser Docker container running
+                        after conversion. This can speed up batch processing
+                        and ease debugging. (default: False)
+  --thermo-output-format {imzml,mgf,mzml,parquet}
+                        the output format into which the raw file will be
+                        converted. This parameter only applies to the
+                        convertraw command. (default: mgf)
+  --verbose, -v         Increase output verbosity to debug level. (default:
+                        False)
+  --version             Show the version of this software.
 ```
 
 There are multiple commands (positional arguments) as well as several optional arguments available.
@@ -114,147 +192,48 @@ commands (separated by spaces), which will all use their share of the given argu
 
 #### Request Project Information for the Project PXD010000
 
-```
-$ mmproteo -p PXD010000 info
-2021-01-21 23:02:14,035 - MMProteo: Logging to <stderr> and to file ./pride/downloader.log
-2021-01-21 23:02:14,035 - MMProteo: Requesting project summary from https://www.ebi.ac.uk:443/pride/ws/archive/project/PXD010000
-2021-01-21 23:02:15,847 - MMProteo: Received project summary for project "PXD010000"
-{
-    "accession": "PXD010000",
-    "title": "DeNovo Peptide Identification Deep Learning Training Set",
-    "projectDescription": "A benchmark set of bottom-up proteomics data for training deep learning networks. It has data from 51 organisms and includes nearly 1 million peptides.",
-    "publicationDate": "2018-06-13",
-    "submissionType": "COMPLETE",
-    "numAssays": 235,
-    "species": [
-        "Delftia acidovorans (strain DSM 14801 / SPH-1)",
-        "Francisella tularensis subsp. novicida (strain U112)",
-        "Cupriavidus necator (strain ATCC 43291 / DSM 13513 / N-1) (Ralstonia eutropha)",
-        "Rhizobium radiobacter (Agrobacterium tumefaciens) (Agrobacterium radiobacter)",
-        "Shewanella oneidensis (strain MR-1)",
-        "Bacteroides thetaiotaomicron (strain ATCC 29148 / DSM 2079 / NCTC 10582 / E50 / VPI-5482)",
-        "Synechococcus elongatus (strain PCC 7942) (Anacystis nidulans R2)",
-        "bacteria",
-        "Micrococcus luteus (Micrococcus lysodeikticus)",
-        "Methylomicrobium alcaliphilum (strain DSM 19304 / NCIMB 14124 / VKM B-2133 / 20Z)",
-        "Mycobacterium smegmatis",
-        "Rhodopseudomonas palustris",
-        "Listeria monocytogenes serotype 1/2a (strain 10403S)",
-        "Alcaligenes faecalis",
-        "Legionella pneumophila",
-        "Lactobacillus casei subsp. casei ATCC 393",
-        "Acidiphilium cryptum (strain JF-5)",
-        "Bacillus cereus (strain ATCC 14579 / DSM 31)",
-        "Citrobacter freundii",
-        "Chryseobacterium indologenes",
-        "Myxococcus xanthus DZ2",
-        "Fibrobacter succinogenes subsp. succinogenes S85",
-        "Bacteroides fragilis (strain 638R)",
-        "Rhodococcus sp. (strain RHA1)",
-        "Clostridium ljungdahlii (strain ATCC 55383 / DSM 13528 / PETC)",
-        "Coprococcus comes ATCC 27758",
-        "Bacillus subtilis subsp. subtilis str. NCIB 3610",
-        "Bacillus subtilis subsp. subtilis str. 168",
-        "Anaerococcus hydrogenalis DSM 7454",
-        "Algoriphagus marincola HL-49",
-        "Stigmatella aurantiaca (strain DW4/3-1)",
-        "Streptococcus agalactiae",
-        "Bifidobacterium longum subsp. infantis (strain ATCC 15697 / DSM 20088 / JCM 1222 / NCTC 11817 / S12)",
-        "Sulfobacillus thermosulfidooxidans",
-        "Paenibacillus polymyxa ATCC 842",
-        "Faecalibacterium prausnitzii SL3/3",
-        "Cyanobacterium stanieri",
-        "Cellvibrio gilvus (strain ATCC 13127 / NRRL B-14078)",
-        "Dorea formicigenerans",
-        "Streptomyces griseorubens",
-        "Streptomyces sp.",
-        "Bifidobacterium bifidum DSM 20456 = JCM 1255",
-        "Paracoccus denitrificans",
-        "Prevotella ruminicola (strain ATCC 19189 / JCM 8958 / 23)",
-        "Campylobacter jejuni",
-        "Ruminococcus gnavus ATCC 29149",
-        "Pseudomonas putida KT2440",
-        "Cellulophaga baltica 18"
-    ],
-    "tissues": [],
-    "ptmNames": [
-        "Oxidation"
-    ],
-    "instrumentNames": [
-        "Q Exactive"
-    ],
-    "projectTags": [],
-    "doi": "10.6019/PXD010000",
-    "submitter": {
-        "title": "Dr",
-        "firstName": "Matthew",
-        "lastName": "Monroe",
-        "email": "matthew.monroe@pnnl.gov",
-        "affiliation": "Pacific Northwest National Laboratory"
-    },
-    "labHeads": [
-        {
-            "title": "Dr",
-            "firstName": "Samuel",
-            "lastName": "Payne",
-            "email": "samuel.payne@pnnl.gov",
-            "affiliation": "Pacific Northwest National Laboratory"
-        }
-    ],
-    "submissionDate": "2018-06-12",
-    "reanalysis": "PXD005851",
-    "experimentTypes": [
-        "Shotgun proteomics"
-    ],
-    "quantificationMethods": [],
-    "keywords": "machine learning, deep learning, bacterial diversity",
-    "sampleProcessingProtocol": "Samples were digested with trypsin then analyzed by LC-MS/MS",
-    "dataProcessingProtocol": "Data was searched with MSGF+ using PNNL's DMS Processing pipeline",
-    "otherOmicsLink": null,
-    "numProteins": 1494431,
-    "numPeptides": 10324593,
-    "numSpectra": 11774613,
-    "numUniquePeptides": 7496530,
-    "numIdentifiedSpectra": 0,
-    "references": []
-}
-
-```
+`mmproteo --pride-project PXD010000 info`
 
 #### List all Information about 2 Files of Project PXD010000
 
-```
-$ mmproteo -p PXD010000 -n 2 ls
-2021-01-21 23:06:08,280 - MMProteo: Logging to <stderr> and to file ./pride/downloader.log
-2021-01-21 23:06:08,280 - MMProteo: Requesting list of project files from https://www.ebi.ac.uk/pride/ws/archive/file/list/project/PXD010000
-2021-01-21 23:06:08,852 - MMProteo: Received list of 1175 project files
-2021-01-21 23:06:08,852 - MMProteo: Showing only the top 2 entries because of the max_num_files parameter
-  projectAccession assayAccession fileType fileSource   fileSize                                                                             fileName                                                                                                                                        downloadLink                                                                                                                                asperaDownloadLink
-0        PXD010000          93137   RESULT  SUBMITTED   98085358  Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39_msgfplus.mzid.gz  ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2018/06/PXD010000/Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39_msgfplus.mzid.gz  prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2018/06/PXD010000/Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39_msgfplus.mzid.gz
-1        PXD010000          93137     PEAK  SUBMITTED  340204025           Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39.mzML.gz           ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2018/06/PXD010000/Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39.mzML.gz           prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2018/06/PXD010000/Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39.mzML.gz
-```
+`mmproteo --pride-project PXD010000 --max-num-files 2 list`
 
 #### Show selected Information about 5 RAW or mzML files of Project PXD010000
-
 ```
-$ mmproteo -p PXD010000 -n 5 --shown-columns "projectAccession,fileName,fileSize" -t "raw,mzml" ls
-2021-01-21 23:13:57,067 - MMProteo: Logging to <stderr> and to file ./pride/downloader.log
-2021-01-21 23:13:57,067 - MMProteo: Requesting list of project files from https://www.ebi.ac.uk/pride/ws/archive/file/list/project/PXD010000
-2021-01-21 23:13:57,679 - MMProteo: Received list of 1175 project files
-2021-01-21 23:13:57,679 - MMProteo: Filtering repository files based on the following required file extensions ["mzml", "raw"] and the following optional file extensions ["zip", "gz"]
-2021-01-21 23:13:57,680 - MMProteo: Showing only the top 5 entries because of the max_num_files parameter
-2021-01-21 23:13:57,681 - MMProteo: Limiting the shown columns according to the shown_columns parameter
-   projectAccession                                                                    fileName    fileSize
-1         PXD010000  Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39.mzML.gz   340204025
-3         PXD010000      Biodiversity_S_thermosulf_FeYE_anaerobic_2_01Jun16_Pippin_16-03-39.raw   479591415
-6         PXD010000                               Cj_media_MH_R5_23Feb15_Arwen_14-12-03.mzML.gz   578988435
-8         PXD010000                                   Cj_media_MH_R5_23Feb15_Arwen_14-12-03.raw  1842140687
-11        PXD010000                               Cj_media_MH_R4_23Feb15_Arwen_14-12-03.mzML.gz   698723177
+$ mmproteo --pride-project PXD010000 --max-num-files 5 --shown-columns "projectAccessions,fileName,fileSizeBytes" --file-extensions "raw,mzml" list
+2021-03-04 22:13:41,374 - MMProteo: Logging to file './mmproteo.log' and to <stderr>
+2021-03-04 22:13:41,374 - MMProteo: Requesting list of project files using API version 2 from https://www.ebi.ac.uk/pride/ws/archive/v2/files/byProject?accession=PXD010000
+2021-03-04 22:13:42,280 - MMProteo: Received project file list using API version 2 with 1175 files for project "PXD010000"
+2021-03-04 22:13:42,280 - MMProteo: Filtering files based on the following required file extensions ["mzml", "raw"] and the following optional file extensions ["gz", "zip"]
+2021-03-04 22:13:42,288 - MMProteo: Showing only the top 5 entries because of the max_num_files parameter
+2021-03-04 22:13:42,289 - MMProteo: Limiting the shown columns according to the shown_columns parameter
+  projectAccessions                                                                  fileName  fileSizeBytes
+0       [PXD010000]  Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.mzML.gz      281892753
+1       [PXD010000]      Biodiversity_A_cryptum_FeTSB_anaerobic_1_01Jun16_Pippin_16-03-39.raw      386157431
+2       [PXD010000]  Biodiversity_A_cryptum_FeTSB_anaerobic_2_01Jun16_Pippin_16-03-39.mzML.gz      298698862
+3       [PXD010000]      Biodiversity_A_cryptum_FeTSB_anaerobic_2_01Jun16_Pippin_16-03-39.raw      410279729
+4       [PXD010000]  Biodiversity_A_cryptum_FeTSB_anaerobic_3_01Jun16_Pippin_16-03-39.mzML.gz      276592897
 ```
-
 Recognize, that the archive extension `.gz` of the mzML files as well as the capitalization of `mzML` 
-is ignored while filtering the files. The same would state for the `.zip` extension. Other archive formats
-are not supported yet.
+is ignored while filtering the files.
+
+#### List 5 files with a file size below 100 megabytes or a 'gz' file extension
+
+`mmproteo --pride-project PXD010000 --max-num-files 5 --filter "fileSizeBytes==.{1,8} or fileName==.*\.gz" list`
+
+The filter parameter uses regular expressions to match column values. 
+You can check the syntax on the ['re' homepage](https://docs.python.org/3/library/re.html).
 
 ## Tests
 
+Right now, there is only a limited number of tests. Most functionality is only tested using integration tests, because
+the methods became too quickly too many.
+Still, to run the tests you will need mmproteo installed, preferably as edible development installation 
+(`pip install -e mmproteo`). Furthermore, pytest is required. To directly install all packages required for development 
+and extended usage of this project, run `pip install -r requirements.txt` in the root of this project.
+
+Finally, to run the tests `cd` into the test directory (`mmproteo/test`) and run there `pytest`. Unfortunately, 
+depending on your Internet connection and CPU speed, some tests might take several minutes, because I don't know of a 
+really nice way of testing a downloader/converter without downloading/converting stuff.
+
+Good Luck!

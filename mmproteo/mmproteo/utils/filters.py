@@ -148,7 +148,7 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 
         from mmproteo.utils.formats import get_extractable_file_extensions
         optional_file_extensions = get_extractable_file_extensions()
-        optional_file_extensions -= required_file_extensions
+        optional_file_extensions -= set(required_file_extensions)
 
         required_file_extensions_list_str = "\", \"".join(sorted(required_file_extensions))
         optional_file_extensions_list_str = "\", \"".join(sorted(optional_file_extensions))

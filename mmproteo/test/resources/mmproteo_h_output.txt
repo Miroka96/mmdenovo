@@ -17,7 +17,9 @@ positional arguments:
                                       files or, if none were downloaded or
                                       extracted, those raw files in the data
                                       directory, into the given thermo output
-                                      format using the ThermoRawFileParser
+                                      format using the ThermoRawFileParser.
+                                      This command requires an accessible
+                                      Docker installation.
                         download    : download files from a given project
                         extract     : extract all downloaded archive files or,
                                       if none were downloaded, those in the

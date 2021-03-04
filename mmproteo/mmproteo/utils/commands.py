@@ -149,7 +149,8 @@ class ConvertRawCommand(AbstractCommand):
     def get_description(self) -> str:
         return "convert all downloaded or extracted raw files or, if none were downloaded or extracted, " \
                "those raw files in the data " \
-               "directory, into the given thermo output format using the ThermoRawFileParser"
+               "directory, into the given thermo output format using the ThermoRawFileParser. " \
+               "This command requires an accessible Docker installation."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
