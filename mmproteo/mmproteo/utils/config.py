@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
+import mmproteo.utils.filters
 from mmproteo._version import get_versions
 from mmproteo.utils import log, utils
 
@@ -108,7 +109,7 @@ class Config:
         self.shown_columns: List[str] = []
         self.commands: Optional[List[str]] = None
         self.pride_versions: List[str] = []
-        self.column_filter: Optional[formats.AbstractFilterConditionNode] = None
+        self.column_filter: Optional[mmproteo.utils.filters.AbstractFilterConditionNode] = None
         self.fail_early: bool = True
         self.terminate_process: bool = False
         self.thermo_output_format: str = self.default_thermo_output_format
@@ -253,7 +254,7 @@ class Config:
         parser.add_argument('--filter', '-f',
                             metavar=f"COLUMN{self.default_filter_separator_regex}REGEX",
                             action="append",
-                            type=formats.create_or_filter_from_str,
+                            type=mmproteo.utils.filters.create_or_filter_from_str,
                             default=[],
                             help="a filter condition for file filtering. The condition must be of the form "
                                  f"'columnName{self.default_filter_separator_regex}valueRegex'. Therefore, the "
@@ -289,8 +290,8 @@ class Config:
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
-        self.column_filter = formats.NoneFilterConditionNode(
-            condition=formats.AndFilterConditionNode(conditions=args.filter),
+        self.column_filter = mmproteo.utils.filters.NoneFilterConditionNode(
+            condition=mmproteo.utils.filters.AndFilterConditionNode(conditions=args.filter),
             none_value=True,
         )
         self.thermo_output_format = args.thermo_output_format

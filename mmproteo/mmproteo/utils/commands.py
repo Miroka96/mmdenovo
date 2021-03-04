@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+import mmproteo.utils.filters
 from mmproteo.utils import formats, log, pride, utils, visualization
 from mmproteo.utils.config import Config
 
@@ -95,11 +96,11 @@ class ListCommand(AbstractCommand):
         if config.project_files is None:
             return
 
-        filtered_files = formats.filter_files_df(files_df=config.project_files,
-                                                 file_extensions=config.valid_file_extensions,
-                                                 column_filter=config.column_filter,
-                                                 sort=True,
-                                                 logger=logger)
+        filtered_files = mmproteo.utils.filters.filter_files_df(files_df=config.project_files,
+                                                                file_extensions=config.valid_file_extensions,
+                                                                column_filter=config.column_filter,
+                                                                sort=True,
+                                                                logger=logger)
 
         visualization.print_df(df=filtered_files,
                                max_num_files=config.max_num_files,

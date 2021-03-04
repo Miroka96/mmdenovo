@@ -1,11 +1,16 @@
+import json
 import os
-from typing import List, Optional, Set
+from typing import List, NoReturn, Optional, Set, Union
 
 import pandas as pd
 import wget
+from requests import Response
+import requests
 
+import mmproteo.utils.filters
 from mmproteo.utils import formats, log
 from mmproteo.utils.config import Config
+from mmproteo.utils.visualization import pretty_print_json
 
 
 def download_file(link: str, skip_existing: bool = Config.default_skip_existing) -> (str, str):
@@ -88,24 +93,24 @@ def download_files(links: List[str],
     return downloaded_files_names
 
 
-def download(project_files: pd.DataFrame,
-             valid_file_extensions: Optional[Set[str]] = None,
-             max_num_files: Optional[int] = None,
-             column_filter: Optional[formats.AbstractFilterConditionNode] = None,
-             download_dir: str = Config.default_storage_dir,
-             skip_existing: bool = Config.default_skip_existing,
-             count_failed_files: bool = Config.default_count_failed_files,
-             file_name_column: str = Config.default_file_name_column,
-             download_link_column: str = Config.default_download_link_column,
-             downloaded_files_column: str = Config.default_downloaded_files_column,
-             logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
-    filtered_files = formats.filter_files_df(files_df=project_files,
-                                             file_name_column=file_name_column,
-                                             file_extensions=valid_file_extensions,
-                                             max_num_files=max_num_files,
-                                             column_filter=column_filter,
-                                             sort=True,
-                                             logger=logger)
+def download_filtered_files(project_files: pd.DataFrame,
+                            valid_file_extensions: Optional[Set[str]] = None,
+                            max_num_files: Optional[int] = None,
+                            column_filter: Optional[mmproteo.utils.filters.AbstractFilterConditionNode] = None,
+                            download_dir: str = Config.default_storage_dir,
+                            skip_existing: bool = Config.default_skip_existing,
+                            count_failed_files: bool = Config.default_count_failed_files,
+                            file_name_column: str = Config.default_file_name_column,
+                            download_link_column: str = Config.default_download_link_column,
+                            downloaded_files_column: str = Config.default_downloaded_files_column,
+                            logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
+    filtered_files = mmproteo.utils.filters.filter_files_df(files_df=project_files,
+                                                            file_name_column=file_name_column,
+                                                            file_extensions=valid_file_extensions,
+                                                            max_num_files=max_num_files,
+                                                            column_filter=column_filter,
+                                                            sort=True,
+                                                            logger=logger)
     logger.assert_true(download_link_column in filtered_files.columns,
                        "Could not find column '%s' in filtered_files dataframe" % download_link_column)
 
@@ -119,3 +124,59 @@ def download(project_files: pd.DataFrame,
 
     os.chdir(initial_directory)
     return filtered_files
+
+
+class AbstractDownloader:
+    def __init__(self, logger: log.Logger = log.DEFAULT_LOGGER):
+        self.logger = logger
+
+    @staticmethod
+    # HTTP 204 - No Content
+    def _handle_204_response(response_dict: dict, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
+        logger.warning("Repository does not exist")
+
+    @staticmethod
+    # HTTP 401 - Unauthorized
+    def _handle_401_response(response_dict: dict, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
+        message = response_dict.get('message', "?")
+        developer_message = response_dict.get('developerMessage', "?")
+        more_info_url = response_dict.get('moreInfoUrl', "?")
+        logger.warning("%s (%s) -> %s" % (message, developer_message, more_info_url))
+
+    @staticmethod
+    def _handle_unknown_response(status_code: int, response_dict: dict,
+                                 logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
+        logger.warning("Received unknown response code %d or content" % status_code)
+        logger.debug(pretty_print_json(response_dict))
+
+    def _handle_non_200_response_codes(self, response: Optional[Response],
+                                       logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[NoReturn]:
+        if response is None:
+            return None
+        if response.status_code == 204:
+            return self._handle_204_response(logger=logger)
+        try:
+            response_dict = json.loads(response.text)
+        except json.JSONDecodeError:
+            logger.warning("Received unknown non-JSON response with response code %d" % response.status_code)
+            logger.debug("Response text: '%s'" % response.text)
+            return
+        if response.status_code == 401:
+            return self._handle_401_response(response_dict, logger)
+        return self._handle_unknown_response(response.status_code, response_dict, logger)
+
+    def request_json(self, url: str, subject_name: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Union[
+        Optional[dict],
+        Optional[NoReturn],
+    ]:
+        logger.info("Requesting %s from %s" % (subject_name, url))
+        response = requests.get(url)
+        logger.debug("Received response from %s with length of %d bytes and status code %d" %
+                     (url, len(response.text), response.status_code))
+
+        if response.status_code == 200:
+            response_dict = json.loads(response.text)
+            return response_dict
+        else:
+            self._handle_non_200_response_codes(response, logger)
+            return None
