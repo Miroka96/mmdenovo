@@ -93,6 +93,8 @@ class Config:
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
 
     def __init__(self):
+        from mmproteo.utils import formats
+
         self.pride_project: Optional[str] = None
         self.max_num_files: int = 0
         self.count_failed_files: bool = self.default_count_failed_files
@@ -106,7 +108,7 @@ class Config:
         self.shown_columns: List[str] = []
         self.commands: Optional[List[str]] = None
         self.pride_versions: List[str] = []
-        self.filters: List[Tuple[str, str]] = []
+        self.column_filter: Optional[formats.AbstractFilterConditionNode] = None
         self.fail_early: bool = True
         self.terminate_process: bool = False
         self.thermo_output_format: str = self.default_thermo_output_format
@@ -200,7 +202,8 @@ class Config:
                             metavar="EXT",
                             default="",
                             type=lambda s: {ext.lower() for ext in s.split(',') if len(ext) > 0},
-                            help="a list of comma-separated allowed file extensions to filter files for. " +
+                            help="a list of comma-separated allowed file extensions to filter files for. "
+                                 "Archive extensions will be automatically appended. " +
                                  "An empty list deactivates filtering. "
                                  "Capitalization does not matter.")
         parser.add_argument("--no-skip-existing",
@@ -250,12 +253,8 @@ class Config:
         parser.add_argument('--filter', '-f',
                             metavar=f"COLUMN{self.default_filter_separator_regex}REGEX",
                             action="append",
-                            type=lambda and_condition: [re.split(pattern=self.default_filter_separator_regex,
-                                                                 string=or_condition,
-                                                                 maxsplit=1)
-                                                        for or_condition
-                                                        in and_condition.split(self.default_filter_or_separator)],
-                            default=self.filters,
+                            type=formats.create_or_filter_from_str,
+                            default=[],
                             help="a filter condition for file filtering. The condition must be of the form "
                                  f"'columnName{self.default_filter_separator_regex}valueRegex'. Therefore, the "
                                  "comparison operator can either be '==' or '!='. "
@@ -290,7 +289,10 @@ class Config:
         self.fail_early = (not args.no_fail_early)
         self.shown_columns = args.shown_columns
         self.pride_versions = utils.deduplicate_list(args.pride_version)
-        self.filters = args.filter
+        self.column_filter = formats.NoneFilterConditionNode(
+            condition=formats.AndFilterConditionNode(conditions=args.filter),
+            none_value=True,
+        )
         self.thermo_output_format = args.thermo_output_format
         self.thermo_keep_container_running = args.thermo_keep_running
 
@@ -303,10 +305,6 @@ class Config:
     def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
-        for and_condition in self.filters:
-            for or_condition in and_condition:
-                logger.assert_true(len(or_condition) == 2, "filters must contain an equality sign to separate "
-                                                           "column name and value regex")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils

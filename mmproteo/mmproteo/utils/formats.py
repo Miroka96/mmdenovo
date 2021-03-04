@@ -1,4 +1,6 @@
+import argparse
 import os
+import re
 import time
 from typing import Any, Callable, Dict, Iterable, List, NoReturn, Optional, Set, Union
 
@@ -10,6 +12,111 @@ from pyteomics.mzml import MzML
 
 from mmproteo.utils import log, utils, visualization
 from mmproteo.utils.config import Config
+
+
+class AbstractFilterConditionNode:
+    def evaluate(self, row: pd.Series) -> Optional[bool]:
+        raise NotImplementedError
+
+    def __call__(self, row: pd.Series) -> bool:
+        return self.evaluate(row=row)
+
+
+class AndFilterConditionNode(AbstractFilterConditionNode):
+    def __init__(self, conditions: List[AbstractFilterConditionNode]):
+        super(AndFilterConditionNode, self).__init__()
+        self.conditions = conditions
+
+    def evaluate(self, row: pd.Series) -> Optional[bool]:
+        res = None
+        for condition in self.conditions:
+            inner_res = condition.evaluate(row=row)
+            if inner_res is not None:
+                if not inner_res:
+                    return False
+                else:
+                    res = True
+        return res
+
+
+class OrFilterConditionNode(AbstractFilterConditionNode):
+    def __init__(self, conditions: List[AbstractFilterConditionNode]):
+        super(OrFilterConditionNode, self).__init__()
+        self.conditions = conditions
+
+    def evaluate(self, row: pd.Series) -> Optional[bool]:
+        res = None
+        for condition in self.conditions:
+            inner_res = condition.evaluate(row=row)
+            if inner_res is not None:
+                if inner_res:
+                    return True
+                else:
+                    res = False
+        return res
+
+
+class NotFilterConditionNode(AbstractFilterConditionNode):
+    def __init__(self, condition: AbstractFilterConditionNode):
+        super(NotFilterConditionNode, self).__init__()
+        self.condition = condition
+
+    def evaluate(self, row: pd.Series) -> Optional[bool]:
+        res = self.condition.evaluate(row=row)
+        if res is None:
+            return None
+        return not res
+
+
+class ColumnRegexFilterConditionNode(AbstractFilterConditionNode):
+    def __init__(self, column_name: str, value_regex: str):
+        super(ColumnRegexFilterConditionNode, self).__init__()
+        self.column_name = column_name
+        self.value_regex = re.compile(value_regex)
+
+    def evaluate(self, row: pd.Series) -> Optional[bool]:
+        if self.column_name in row.index:
+            return bool(self.value_regex.match(row[self.column_name]))
+        return None
+
+
+class NoneFilterConditionNode(AbstractFilterConditionNode):
+    def __init__(self, condition: AbstractFilterConditionNode, none_value: bool = True):
+        super(NoneFilterConditionNode, self).__init__()
+        self.condition = condition
+        self.none_value = none_value
+
+    def evaluate(self, row: pd.Series) -> bool:
+        res = self.condition.evaluate(row=row)
+        if res is None:
+            res = self.none_value
+        return res
+
+
+def create_or_filter_from_str(or_filter_str: str) -> Union[OrFilterConditionNode, NoReturn]:
+    conditions = []
+
+    column_condition_strings = or_filter_str.split(Config.default_filter_or_separator)
+    for column_condition_string in column_condition_strings:
+        parts = re.split(pattern=Config.default_filter_separator_regex,
+                         string=column_condition_string,
+                         maxsplit=1)
+        if len(parts) != 2 or len(parts[0]) == 0 or len(parts[1]) == 0:
+            raise argparse.ArgumentTypeError(f"'{column_condition_string}' does not match the column filter pattern "
+                                             f"'.+{Config.default_filter_separator_regex}.+'")
+        column_name = parts[0]
+        value_regex = parts[1]
+        negation = column_condition_string[len(parts[0])] == "!"
+
+        column_condition = ColumnRegexFilterConditionNode(column_name=column_name, value_regex=value_regex)
+
+        if negation:
+            column_condition = NotFilterConditionNode(condition=column_condition)
+
+        conditions.append(column_condition)
+
+    or_condition = OrFilterConditionNode(conditions=conditions)
+    return or_condition
 
 
 def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DEFAULT_LOGGER) \
@@ -162,6 +269,7 @@ def create_file_extension_filter(required_file_extensions: Iterable[str],
 def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
                   max_num_files: Optional[int] = None,
+                  column_filter: Optional[AbstractFilterConditionNode] = None,
                   keep_null_values: bool = Config.default_keep_null_values,
                   pre_filter_files: bool = Config.default_pre_filter_files,
                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
@@ -169,6 +277,7 @@ def extract_files(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions=get_extractable_file_extensions(),
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -188,6 +297,7 @@ def extract_files(filenames: List[Optional[str]],
 def filter_files_df(files_df: Optional[pd.DataFrame],
                     file_name_column: str = Config.default_file_name_column,
                     file_extensions: Optional[Union[List[str], Set[str]]] = None,
+                    column_filter: Optional[AbstractFilterConditionNode] = None,
                     max_num_files: Optional[int] = None,
                     sort: bool = Config.default_filter_sort,
                     logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[pd.DataFrame]:
@@ -196,7 +306,6 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 
     if file_extensions is None or len(file_extensions) == 0:
         logger.debug("Skipping file extension filtering")
-        filtered_files = files_df
     else:
         logger.assert_true(file_name_column in files_df.columns, "Could not find '%s' column in files_df columns" %
                            file_name_column)
@@ -212,26 +321,27 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
                                                                  optional_file_extensions_list_str))
 
         file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
-        filtered_files = files_df[files_df[file_name_column].apply(file_extension_filter)]
+        files_df = files_df[files_df[file_name_column].apply(file_extension_filter)]
 
-        logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
+        logger.debug("File extension filtering resulted in %d valid file names" % len(files_df))
+
+    if column_filter is not None:
+        column_filter = NoneFilterConditionNode(condition=column_filter, none_value=True)
+        files_df = files_df[files_df.apply(func=column_filter, axis=1)]
 
     if sort:
         # sort, such that files with same prefixes but different extensions come in pairs
-        sorted_files = filtered_files.sort_values(by=file_name_column)
-    else:
-        sorted_files = filtered_files
+        files_df = files_df.sort_values(by=file_name_column)
 
-    if max_num_files is None or max_num_files == 0:
-        limited_files = sorted_files
-    else:
-        limited_files = sorted_files[:max_num_files]
+    if max_num_files is not None and max_num_files > 0:
+        files_df = files_df[:max_num_files]
 
-    return limited_files
+    return files_df
 
 
 def filter_files_list(filenames: List[Optional[str]],
                       file_extensions: Optional[Iterable[str]] = None,
+                      column_filter: Optional[AbstractFilterConditionNode] = None,
                       max_num_files: Optional[int] = None,
                       keep_null_values: bool = Config.default_keep_null_values,
                       sort: bool = Config.default_filter_sort,
@@ -239,6 +349,7 @@ def filter_files_list(filenames: List[Optional[str]],
                       logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
     """
 
+    :param column_filter:
     :param filenames:
     :param file_extensions:
     :param max_num_files:
@@ -269,6 +380,7 @@ def filter_files_list(filenames: List[Optional[str]],
     filtered_df = filter_files_df(files_df=df,
                                   file_name_column="fileName",
                                   file_extensions=file_extensions,
+                                  column_filter=column_filter,
                                   max_num_files=max_num_files,
                                   sort=sort,
                                   logger=logger)
@@ -341,8 +453,8 @@ def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Conf
                                        separator=separator)
 
 
-def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[
-    NoReturn]:
+def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> \
+        Optional[NoReturn]:
     logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
                        "Invalid output format '%s'. Currently allowed formats are: [%s]"
                        % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
@@ -394,6 +506,7 @@ def convert_raw_file(filename: Optional[str],
 def convert_raw_files(filenames: List[Optional[str]],
                       output_format: str = Config.default_thermo_output_format,
                       skip_existing: bool = Config.default_skip_existing,
+                      column_filter: Optional[AbstractFilterConditionNode] = None,
                       max_num_files: Optional[int] = None,
                       keep_null_values: bool = Config.default_keep_null_values,
                       pre_filter_files: bool = Config.default_pre_filter_files,
@@ -406,6 +519,7 @@ def convert_raw_files(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions={"raw"},
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -509,6 +623,7 @@ def _process_files(filenames: List[Optional[str]],
 def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  skip_existing: bool = Config.default_skip_existing,
                                  max_num_files: Optional[int] = None,
+                                 column_filter: Optional[AbstractFilterConditionNode] = None,
                                  keep_null_values: bool = Config.default_keep_null_values,
                                  pre_filter_files: bool = Config.default_pre_filter_files,
                                  logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
@@ -516,6 +631,7 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions={"mgf"},
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -594,11 +710,17 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
 def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          skip_existing: bool = Config.default_skip_existing,
                                          max_num_files: Optional[int] = None,
+                                         column_filter: Optional[AbstractFilterConditionNode] = None,
                                          mzml_key_columns: Optional[List[str]] = None,
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
                                          target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
                                          logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
+    filenames = filter_files_list(filenames=filenames,
+                                  column_filter=column_filter,
+                                  sort=False,
+                                  logger=logger)
+
     filenames_and_extensions = [(filename, separate_extension(filename=filename, extensions={"mzml", "mzid"}))
                                 for filename in filenames if filename is not None]
     filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if

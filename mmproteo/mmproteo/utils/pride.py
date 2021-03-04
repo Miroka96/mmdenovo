@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 from requests import Response
 
-from mmproteo.utils import download as dl, log, utils
+from mmproteo.utils import download as dl, formats, log, utils
 from mmproteo.utils.config import Config
 from mmproteo.utils.visualization import pretty_print_json
 
@@ -207,6 +207,7 @@ def download(project_name: Optional[str] = None,
              project_files: Optional[pd.DataFrame] = None,
              valid_file_extensions: Optional[Iterable[str]] = None,
              max_num_files: Optional[int] = None,
+             column_filter: Optional[formats.AbstractFilterConditionNode] = None,
              download_dir: str = Config.default_storage_dir,
              skip_existing: bool = Config.default_skip_existing,
              count_failed_files: bool = Config.default_count_failed_files,
@@ -229,6 +230,7 @@ def download(project_name: Optional[str] = None,
     return dl.download(project_files=project_files,
                        valid_file_extensions=valid_file_extensions,
                        max_num_files=max_num_files,
+                       column_filter=column_filter,
                        download_dir=download_dir,
                        skip_existing=skip_existing,
                        count_failed_files=count_failed_files,
