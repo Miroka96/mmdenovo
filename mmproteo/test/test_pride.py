@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import mmproteo.utils.filters
 from mmproteo.utils import pride, formats
 import pandas as pd
 try:
@@ -34,40 +34,40 @@ def test_get_project_files():
 
 def store_get_raw_project_files():
     project_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    project_files = formats.filter_files_df(files_df=project_files, file_extensions={"raw"})
+    project_files = mmproteo.utils.filters.filter_files_df(files_df=project_files, file_extensions={"raw"})
     project_files.to_parquet(f"resources/{DEFAULT_PROJECT}_files_raw.parquet")
 
 
 def test_list_raw_project_files():
     expected_files = pd.read_parquet(f"resources/{DEFAULT_PROJECT}_files_raw.parquet")
     received_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    received_files = formats.filter_files_df(files_df=received_files, file_extensions={"raw"})
+    received_files = mmproteo.utils.filters.filter_files_df(files_df=received_files, file_extensions={"raw"})
     pd._testing.assert_frame_equal(expected_files, received_files, check_exact=True)
 
 
 def store_get_mgf_mzid_project_files():
     project_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    project_files = formats.filter_files_df(files_df=project_files, file_extensions={"mgf", "mzid"})
+    project_files = mmproteo.utils.filters.filter_files_df(files_df=project_files, file_extensions={"mgf", "mzid"})
     project_files.to_parquet(f"resources/{DEFAULT_PROJECT}_files_mgf_mzid.parquet")
 
 
 def test_list_mgf_mzid_files():
     expected_files = pd.read_parquet(f"resources/{DEFAULT_PROJECT}_files_mgf_mzid.parquet")
     received_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    received_files = formats.filter_files_df(files_df=received_files, file_extensions={"mgf", "mzid"})
+    received_files = mmproteo.utils.filters.filter_files_df(files_df=received_files, file_extensions={"mgf", "mzid"})
     pd._testing.assert_frame_equal(expected_files, received_files, check_exact=True)
 
 
 def store_get_gz_project_files():
     project_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    project_files = formats.filter_files_df(files_df=project_files, file_extensions={"gz"})
+    project_files = mmproteo.utils.filters.filter_files_df(files_df=project_files, file_extensions={"gz"})
     project_files.to_parquet(f"resources/{DEFAULT_PROJECT}_files_gz.parquet")
 
 
 def test_list_gz_files():
     expected_files = pd.read_parquet(f"resources/{DEFAULT_PROJECT}_files_gz.parquet")
     received_files = pride.get_project_files(project_name=DEFAULT_PROJECT, api_versions=[DEFAULT_TEST_API])
-    received_files = formats.filter_files_df(files_df=received_files, file_extensions={"gz"})
+    received_files = mmproteo.utils.filters.filter_files_df(files_df=received_files, file_extensions={"gz"})
     pd._testing.assert_frame_equal(expected_files, received_files, check_exact=True)
 
 

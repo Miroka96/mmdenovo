@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+import mmproteo.utils.filters
 from mmproteo.utils import formats, log, pride, utils, visualization
 from mmproteo.utils.config import Config
 
@@ -31,6 +32,7 @@ class DownloadCommand(AbstractCommand):
                                           project_files=config.project_files,
                                           valid_file_extensions=config.valid_file_extensions,
                                           max_num_files=config.max_num_files,
+                                          column_filter=config.column_filter,
                                           download_dir=config.storage_dir,
                                           skip_existing=config.skip_existing,
                                           count_failed_files=config.count_failed_files,
@@ -94,10 +96,11 @@ class ListCommand(AbstractCommand):
         if config.project_files is None:
             return
 
-        filtered_files = formats.filter_files_df(files_df=config.project_files,
-                                                 file_extensions=config.valid_file_extensions,
-                                                 sort=True,
-                                                 logger=logger)
+        filtered_files = mmproteo.utils.filters.filter_files_df(files_df=config.project_files,
+                                                                file_extensions=config.valid_file_extensions,
+                                                                column_filter=config.column_filter,
+                                                                sort=True,
+                                                                logger=logger)
 
         visualization.print_df(df=filtered_files,
                                max_num_files=config.max_num_files,
@@ -129,6 +132,7 @@ class ExtractCommand(AbstractCommand):
         extracted_files = formats.extract_files(filenames=files,
                                                 skip_existing=config.skip_existing,
                                                 max_num_files=config.max_num_files,
+                                                column_filter=config.column_filter,
                                                 keep_null_values=False,
                                                 pre_filter_files=True,
                                                 logger=logger)
@@ -166,6 +170,7 @@ class ConvertRawCommand(AbstractCommand):
                                                     output_format=config.thermo_output_format,
                                                     skip_existing=config.skip_existing,
                                                     max_num_files=config.max_num_files,
+                                                    column_filter=config.column_filter,
                                                     keep_null_values=False,
                                                     pre_filter_files=True,
                                                     thermo_docker_container_name=Config.
@@ -209,6 +214,7 @@ class Mgf2ParquetCommand(AbstractCommand):
         mgf_parquet_files = formats.convert_mgf_files_to_parquet(filenames=files,
                                                                  skip_existing=config.skip_existing,
                                                                  max_num_files=config.max_num_files,
+                                                                 column_filter=config.column_filter,
                                                                  keep_null_values=False,
                                                                  pre_filter_files=True,
                                                                  logger=logger)
@@ -237,6 +243,7 @@ class Mz2ParquetCommand(AbstractCommand):
         mzmlid_parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=files,
                                                                             skip_existing=config.skip_existing,
                                                                             max_num_files=config.max_num_files,
+                                                                            column_filter=config.column_filter,
                                                                             logger=logger)
 
         result_df = config.cache(mzmlid_parquet_files, config.default_mzmlid_parquet_files_column)

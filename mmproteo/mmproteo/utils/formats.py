@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, Callable, Dict, Iterable, List, NoReturn, Optional, Set, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Set, Union
 
 import pandas as pd
 from pyteomics import mgf, mzid, mzml
@@ -10,6 +10,7 @@ from pyteomics.mzml import MzML
 
 from mmproteo.utils import log, utils, visualization
 from mmproteo.utils.config import Config
+from mmproteo.utils.filters import AbstractFilterConditionNode, filter_files_list
 
 
 def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DEFAULT_LOGGER) \
@@ -140,28 +141,10 @@ def extract_file_if_possible(filename: Optional[str],
     return extracted_filename
 
 
-def create_file_extension_filter(required_file_extensions: Iterable[str],
-                                 optional_file_extensions: Optional[Iterable[str]] = None) \
-        -> Callable[[Optional[str]], bool]:
-    if optional_file_extensions is None:
-        file_extensions = set(required_file_extensions)
-    else:
-        file_extensions = {required_extension + "." + optional_extension
-                           for required_extension in required_file_extensions
-                           for optional_extension in optional_file_extensions}
-        file_extensions.update(required_file_extensions)  # add all
-
-    def filter_file_extension(filename: Optional[str]) -> bool:
-        if filename is None:
-            return True
-        return filename.lower().endswith(tuple(file_extensions))
-
-    return filter_file_extension
-
-
 def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
                   max_num_files: Optional[int] = None,
+                  column_filter: Optional[AbstractFilterConditionNode] = None,
                   keep_null_values: bool = Config.default_keep_null_values,
                   pre_filter_files: bool = Config.default_pre_filter_files,
                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
@@ -169,6 +152,7 @@ def extract_files(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions=get_extractable_file_extensions(),
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -183,96 +167,6 @@ def extract_files(filenames: List[Optional[str]],
                           max_num_files=max_num_files,
                           keep_null_values=keep_null_values,
                           logger=logger)
-
-
-def filter_files_df(files_df: Optional[pd.DataFrame],
-                    file_name_column: str = Config.default_file_name_column,
-                    file_extensions: Optional[Union[List[str], Set[str]]] = None,
-                    max_num_files: Optional[int] = None,
-                    sort: bool = Config.default_filter_sort,
-                    logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[pd.DataFrame]:
-    if files_df is None:
-        return None
-
-    if file_extensions is None or len(file_extensions) == 0:
-        logger.debug("Skipping file extension filtering")
-        filtered_files = files_df
-    else:
-        logger.assert_true(file_name_column in files_df.columns, "Could not find '%s' column in files_df columns" %
-                           file_name_column)
-        required_file_extensions = file_extensions
-        optional_file_extensions = get_extractable_file_extensions()
-
-        required_file_extensions_list_str = "\", \"".join(required_file_extensions)
-        optional_file_extensions_list_str = "\", \"".join(optional_file_extensions)
-        if len(optional_file_extensions_list_str) > 0:
-            optional_file_extensions_list_str = '"' + optional_file_extensions_list_str + '"'
-        logger.info("Filtering files based on the following required file extensions [\"%s\"] and the "
-                    "following optional file extensions [%s]" % (required_file_extensions_list_str,
-                                                                 optional_file_extensions_list_str))
-
-        file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
-        filtered_files = files_df[files_df[file_name_column].apply(file_extension_filter)]
-
-        logger.debug("File extension filtering resulted in %d valid file names" % len(filtered_files))
-
-    if sort:
-        # sort, such that files with same prefixes but different extensions come in pairs
-        sorted_files = filtered_files.sort_values(by=file_name_column)
-    else:
-        sorted_files = filtered_files
-
-    if max_num_files is None or max_num_files == 0:
-        limited_files = sorted_files
-    else:
-        limited_files = sorted_files[:max_num_files]
-
-    return limited_files
-
-
-def filter_files_list(filenames: List[Optional[str]],
-                      file_extensions: Optional[Iterable[str]] = None,
-                      max_num_files: Optional[int] = None,
-                      keep_null_values: bool = Config.default_keep_null_values,
-                      sort: bool = Config.default_filter_sort,
-                      drop_duplicates: bool = Config.default_filter_drop_duplicates,
-                      logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
-    """
-
-    :param filenames:
-    :param file_extensions:
-    :param max_num_files:
-    :param keep_null_values:    whether to keep null values in the given :param:`filenames`. Cannot be used
-                                with :param:`drop_duplicates`
-    :param sort:
-    :param drop_duplicates:     whether to drop duplicate entries in :param:`filenames`. Cannot be used with
-                                :param:`keep_null_values`.
-    :param logger:
-    :return:
-    """
-    logger.assert_true(not keep_null_values or not drop_duplicates,
-                       "Cannot use keep_null_values and drop_duplicates simultaneously")
-
-    if not keep_null_values:
-        filenames = [filename for filename in filenames if filename is not None]
-    if len(filenames) == 0:
-        return list()
-
-    df = pd.DataFrame(data=filenames, columns=["fileName"])
-    if drop_duplicates:
-        # TODO this also drops duplicate None values
-        # it would require further preprocessing to use it together with keep_null_values
-        # possible solution: copy the fileName column to a temporary column, fill all None values there with unique
-        # values, drop_duplicates on this temporary column, remove the temporary column
-        df = df.drop_duplicates()
-
-    filtered_df = filter_files_df(files_df=df,
-                                  file_name_column="fileName",
-                                  file_extensions=file_extensions,
-                                  max_num_files=max_num_files,
-                                  sort=sort,
-                                  logger=logger)
-    return filtered_df["fileName"].to_list()
 
 
 def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
@@ -341,8 +235,8 @@ def get_string_of_thermo_raw_file_parser_output_formats(format_quote: str = Conf
                                        separator=separator)
 
 
-def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[
-    NoReturn]:
+def assert_valid_thermo_output_format(output_format: str, logger: log.Logger = log.DEFAULT_LOGGER) -> \
+        Optional[NoReturn]:
     logger.assert_true(output_format in get_thermo_raw_file_parser_output_formats(),
                        "Invalid output format '%s'. Currently allowed formats are: [%s]"
                        % (output_format, get_string_of_thermo_raw_file_parser_output_formats()))
@@ -394,6 +288,7 @@ def convert_raw_file(filename: Optional[str],
 def convert_raw_files(filenames: List[Optional[str]],
                       output_format: str = Config.default_thermo_output_format,
                       skip_existing: bool = Config.default_skip_existing,
+                      column_filter: Optional[AbstractFilterConditionNode] = None,
                       max_num_files: Optional[int] = None,
                       keep_null_values: bool = Config.default_keep_null_values,
                       pre_filter_files: bool = Config.default_pre_filter_files,
@@ -406,6 +301,7 @@ def convert_raw_files(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions={"raw"},
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -509,6 +405,7 @@ def _process_files(filenames: List[Optional[str]],
 def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  skip_existing: bool = Config.default_skip_existing,
                                  max_num_files: Optional[int] = None,
+                                 column_filter: Optional[AbstractFilterConditionNode] = None,
                                  keep_null_values: bool = Config.default_keep_null_values,
                                  pre_filter_files: bool = Config.default_pre_filter_files,
                                  logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
@@ -516,6 +413,7 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
         filenames = filter_files_list(filenames=filenames,
                                       file_extensions={"mgf"},
                                       max_num_files=max_num_files,
+                                      column_filter=column_filter,
                                       keep_null_values=keep_null_values,
                                       drop_duplicates=not keep_null_values,
                                       sort=not keep_null_values,
@@ -594,11 +492,17 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
 def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          skip_existing: bool = Config.default_skip_existing,
                                          max_num_files: Optional[int] = None,
+                                         column_filter: Optional[AbstractFilterConditionNode] = None,
                                          mzml_key_columns: Optional[List[str]] = None,
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
                                          target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
                                          logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
+    filenames = filter_files_list(filenames=filenames,
+                                  column_filter=column_filter,
+                                  sort=False,
+                                  logger=logger)
+
     filenames_and_extensions = [(filename, separate_extension(filename=filename, extensions={"mzml", "mzid"}))
                                 for filename in filenames if filename is not None]
     filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if

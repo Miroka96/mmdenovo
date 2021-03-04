@@ -1,3 +1,4 @@
+import mmproteo.utils.filters
 from mmproteo.utils import formats
 from .utils.fixtures import *
 from .utils.defaults import *
@@ -23,8 +24,8 @@ def test_filter_files_list():
         "ghi.gz"
     ]
 
-    assert ["abc.txt"] == formats.filter_files_list(filenames=filenames, max_num_files=1)
-    assert ["abc.txt", "def.txt.gz"] == formats.filter_files_list(filenames=filenames, file_extensions=["txt"])
-    assert ["def.txt.gz", "ghi.gz"] == formats.filter_files_list(filenames=filenames, file_extensions=["gz"])
-    assert ["abc.txt", "def.txt.gz", "ghi.gz"] == formats.filter_files_list(filenames=filenames,
-                                                                            file_extensions=["gz", "txt"])
+    assert ["abc.txt"] == mmproteo.utils.filters.filter_files_list(filenames=filenames, max_num_files=1)
+    assert ["abc.txt", "def.txt.gz"] == mmproteo.utils.filters.filter_files_list(filenames=filenames, file_extensions=["txt"])
+    assert ["def.txt.gz", "ghi.gz"] == mmproteo.utils.filters.filter_files_list(filenames=filenames, file_extensions=["gz"])
+    assert ["abc.txt", "def.txt.gz", "ghi.gz"] == mmproteo.utils.filters.filter_files_list(filenames=filenames,
+                                                                                           file_extensions=["gz", "txt"])
