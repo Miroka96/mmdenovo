@@ -1,5 +1,5 @@
 usage: mmproteo [--count-failed-files] [--dummy-logger]
-                [--file-extensions EXT] [--filter COLUMN=REGEX] [--help]
+                [--file-extensions EXT] [--filter COLUMN[=!]=REGEX] [--help]
                 [--log-file FILE] [--log-to-stdout] [--max-num-files N]
                 [--no-fail-early] [--no-skip-existing]
                 [--pride-project PROJECT] [--pride-version {1,2}]

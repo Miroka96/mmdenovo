@@ -148,14 +148,15 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
 
         from mmproteo.utils.formats import get_extractable_file_extensions
         optional_file_extensions = get_extractable_file_extensions()
+        optional_file_extensions -= required_file_extensions
 
-        required_file_extensions_list_str = "\", \"".join(required_file_extensions)
-        optional_file_extensions_list_str = "\", \"".join(optional_file_extensions)
+        required_file_extensions_list_str = "\", \"".join(sorted(required_file_extensions))
+        optional_file_extensions_list_str = "\", \"".join(sorted(optional_file_extensions))
         if len(optional_file_extensions_list_str) > 0:
-            optional_file_extensions_list_str = '"' + optional_file_extensions_list_str + '"'
-        logger.info("Filtering files based on the following required file extensions [\"%s\"] and the "
-                    "following optional file extensions [%s]" % (required_file_extensions_list_str,
-                                                                 optional_file_extensions_list_str))
+            optional_file_extensions_list_str = " and the following optional file extensions " \
+                                                f"[\"{optional_file_extensions_list_str}\"]"
+        logger.info("Filtering files based on the following required file extensions "
+                    f"[\"{required_file_extensions_list_str}\"]" + optional_file_extensions_list_str)
 
         file_extension_filter = create_file_extension_filter(required_file_extensions, optional_file_extensions)
         files_df = files_df[files_df[file_name_column].apply(file_extension_filter)]

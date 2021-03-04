@@ -1,5 +1,5 @@
 usage: mmproteo [--count-failed-files] [--dummy-logger]
-                [--file-extensions EXT] [--filter COLUMN=REGEX] [--help]
+                [--file-extensions EXT] [--filter COLUMN[=!]=REGEX] [--help]
                 [--log-file FILE] [--log-to-stdout] [--max-num-files N]
                 [--no-fail-early] [--no-skip-existing]
                 [--pride-project PROJECT] [--pride-version {1,2}]
@@ -47,18 +47,36 @@ optional arguments:
                         False)
   --file-extensions EXT, -e EXT
                         a list of comma-separated allowed file extensions to
-                        filter files for. An empty list deactivates filtering.
-                        Capitalization does not matter. (default: )
-  --filter COLUMN=REGEX, -f COLUMN=REGEX
+                        filter files for. Archive extensions will be
+                        automatically appended. An empty list deactivates
+                        filtering. Capitalization does not matter. (default: )
+  --filter COLUMN[=!]=REGEX, -f COLUMN[=!]=REGEX
                         a filter condition for file filtering. The condition
-                        must be of the form 'columnName=valueRegex'. The
-                        column name must not (yet) contain equality signs. The
-                        value will be interpreted using Python's rules for
-                        regular expressions (from the Python 're' package).
-                        This parameter can be given multiple times to enforce
-                        multiple filters simultaneously, meaning the filters
-                        will be logically connected using the boolean 'and'.
-                        (default: [])
+                        must be of the form 'columnName[=!]=valueRegex'.
+                        Therefore, the comparison operator can either be '=='
+                        or '!='. The column name must not contain these
+                        character patterns. The value will be interpreted
+                        using Python's rules for regular expressions (from the
+                        Python 're' package). This parameter can be given
+                        multiple times to enforce multiple filters
+                        simultaneously, meaning the filters will be logically
+                        connected using a boolean 'and'. Boolean 'or'
+                        operations can be specified as ' or ' within any
+                        filter parameter, for example like this (representing
+                        (a==1 or b==2) and (c==3 or (not d==4))): 'mmproteo -f
+                        "a==1 or b==2" -f "c==3 or d!=4" list'. A condition
+                        can be negated using '!=' instead of '=='. For the
+                        filtering process, the filter columns will be
+                        converted to strings. Non-existent columns will be
+                        ignored. Capitalization matters. All these rules add
+                        up to a conjunctive normal form. As some commands can
+                        be pipelined to use previous results, there are also
+                        the following special column names available:
+                        ["converted_mgf_parquet_files",
+                        "converted_mzmlid_parquet_files",
+                        "converted_raw_files", "downloadLink",
+                        "downloaded_files", "extracted_files", "fileName"]. An
+                        empty list disables this filter. (default: [])
   --help, -h            Show this help message and exit.
   --log-file FILE, -l FILE
                         the name of the log file, relative to the download
