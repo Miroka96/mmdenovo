@@ -1,5 +1,5 @@
 import os
-from typing import Any, Hashable, Iterable, List, Optional, Union
+from typing import Any, Hashable, Iterable, List, Optional, Union, Dict, NoReturn
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ def ensure_dir_exists(directory: str, logger: log.Logger = log.DEFAULT_LOGGER) -
         logger.warning("'%s' already exists and is not a directory")
 
 
-def extract_dict_or_inner_element(elem: Union[Iterable, Any]) -> Union[Iterable, Any]:
+def flatten_single_element_containers(elem: Union[Iterable, Any]) -> Union[Iterable, Any]:
     try:
         # skip one-element lists or sets,...
         while type(elem) == list or type(elem) == set or type(elem) == tuple:
@@ -79,6 +79,15 @@ def flatten_dict(input_dict: dict,
                  overwrite: bool = False,
                  clean_keys: bool = True,
                  concat_keys: bool = True) -> dict:
+    """
+
+    :param input_dict:
+    :param result_dict:
+    :param overwrite:
+    :param clean_keys:
+    :param concat_keys:  Side effect is that all keys become strings.
+    :return:
+    """
     if result_dict is None:
         result_dict = dict()
 
@@ -93,21 +102,41 @@ def flatten_dict(input_dict: dict,
                 key = str(key)
                 key = key.replace(" ", "_")
                 key = "".join([c for c in key if c.isalnum() or c == "_"])
-            value = extract_dict_or_inner_element(value)
+            value = flatten_single_element_containers(value)
 
             if type(value) == dict:
-                new_prefix = key + "__"
+                new_prefix = str(key) + "__"
+                if concat_keys:
+                    new_prefix = key_prefix + new_prefix
                 dict_queue.append((new_prefix, value))
                 continue
 
             if not overwrite and key not in result_dict:
                 if concat_keys:
-                    new_key = key_prefix + key
+                    new_key = key_prefix + str(key)
                 else:
                     new_key = key
                 result_dict[new_key] = value
 
     return result_dict
+
+
+def list_of_dicts_to_dict(items: List[Dict], dict_key: str) -> Union[Optional[Dict], NoReturn]:
+    all_have_key = True
+
+    for item in items:
+        if dict_key not in item.keys():
+            all_have_key = False
+            break
+
+    if all_have_key:
+        items_dict = dict()
+        for item in items:
+            key = item[dict_key]
+            items_dict[key] = item
+        return items_dict
+
+    return None
 
 
 def is_docker_container_running(container_name: str,

@@ -29,9 +29,23 @@ def read_mgf(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataF
     return pd.DataFrame(data=extracted_entries)
 
 
+def _prepare_mzid_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    entry = entry.copy()
+
+    try:
+        items = utils.list_of_dicts_to_dict(entry["SpectrumIdentificationItem"], "rank")
+        if items is not None:
+            entry["SpectrumIdentificationItem"] = items
+    except:
+        pass
+
+    entry = utils.flatten_dict(entry)
+    return entry
+
+
 def read_mzid(filename: str, logger: log.Logger = log.DEFAULT_LOGGER) -> pd.DataFrame:
     entries = iter_entries(mzid.read(filename), logger=logger)
-    extracted_entries = [utils.flatten_dict(entry) for entry in entries]
+    extracted_entries = [_prepare_mzid_entry(entry) for entry in entries]
     return pd.DataFrame(data=extracted_entries)
 
 
