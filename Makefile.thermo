@@ -1,20 +1,20 @@
-THERMORAWFILEPARSER_IMAGE = quay.io/biocontainers/thermorawfileparser:1.2.3--1
-THERMORAWFILEPARSER_VOLUME_MOUNTING = -v ${PWD}:/data
-THERMORAWFILEPARSER_PARAMETERS = --rm -w /data $(THERMORAWFILEPARSER_VOLUME_MOUNTING) $(THERMORAWFILEPARSER_IMAGE) /bin/bash
+IMAGE = quay.io/biocontainers/thermorawfileparser:1.2.3--1
+VOLUME_MOUNTING = -v ${PWD}:/data
+PARAMETERS = --rm -w /data $(VOLUME_MOUNTING) $(IMAGE) /bin/bash
 
-.PHONY: thermorawfileparser-pull thermorawfileparser-shell thermorawfileparser-noninteractive
+.PHONY: pull shell noninteractive
 
-thermorawfileparser-pull:
-	docker pull $(THERMORAWFILEPARSER_IMAGE)
+pull:
+	docker pull $(IMAGE)
 
-thermorawfileparser-shell: thermorawfileparser-pull
+shell: pull
 	@echo
 	@echo "######################################################"
 	@echo type \'ThermoRawFileParser --help\' to get an overview
 	@echo "######################################################"
 	@echo
-	docker run -it $(THERMORAWFILEPARSER_PARAMETERS)
+	docker run -it $(PARAMETERS)
 
-thermorawfileparser-noninteractive: thermorawfileparser-pull
+noninteractive: pull
 	# here you can pipe in commands
-	docker run -i $(THERMORAWFILEPARSER_PARAMETERS)
+	docker run -i $(PARAMETERS)
