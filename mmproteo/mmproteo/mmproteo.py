@@ -57,6 +57,9 @@ def main(config: Config = None, logger: log.Logger = None):
         commands.DISPATCHER.dispatch_commands(config=config, logger=logger)
     except log.LoggedErrorException:
         return
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt - Shutting down")
+        return
 
 
 if __name__ == '__main__':

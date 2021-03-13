@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, Callable, Dict, List, NoReturn, Optional, Set, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Set, Union, Tuple
 
 import pandas as pd
 from pyteomics import mgf, mzid, mzml
@@ -11,6 +11,7 @@ from pyteomics.mzml import MzML
 from mmproteo.utils import log, utils, visualization
 from mmproteo.utils.config import Config
 from mmproteo.utils.filters import AbstractFilterConditionNode, filter_files_list
+from mmproteo.utils.processing import ItemProcessor
 
 
 def iter_entries(iterator: Union[MGFBase, MzIdentML, MzML], logger: log.Logger = log.DEFAULT_LOGGER) \
@@ -175,12 +176,12 @@ def extract_files(filenames: List[Optional[str]],
     def file_processor(filename: Optional[str]) -> Optional[str]:
         return extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
 
-    return _process_files(filenames=filenames,
-                          file_processor=file_processor,
-                          action_name="extract",
-                          max_num_files=max_num_files,
-                          keep_null_values=keep_null_values,
-                          logger=logger)
+    return list(ItemProcessor(items=filenames,
+                              item_processor=file_processor,
+                              action_name="extract",
+                              max_num_items=max_num_files,
+                              keep_null_values=keep_null_values,
+                              logger=logger).process())
 
 
 def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
@@ -329,12 +330,12 @@ def convert_raw_files(filenames: List[Optional[str]],
                                 thermo_exec_command=thermo_exec_command,
                                 logger=logger)
 
-    return _process_files(filenames=filenames,
-                          file_processor=file_processor,
-                          action_name=f"raw2{output_format}-convert",
-                          max_num_files=max_num_files,
-                          keep_null_values=keep_null_values,
-                          logger=logger)
+    return list(ItemProcessor(items=filenames,
+                              item_processor=file_processor,
+                              action_name=f"raw2{output_format}-convert",
+                              max_num_items=max_num_files,
+                              keep_null_values=keep_null_values,
+                              logger=logger).process())
 
 
 def convert_mgf_file_to_parquet(filename: Optional[str],
@@ -365,57 +366,6 @@ def convert_mgf_file_to_parquet(filename: Optional[str],
         return None
 
 
-def _process_files(filenames: List[Optional[str]],
-                   file_processor: Callable[[str], Optional[str]],
-                   action_name: str,
-                   max_num_files: Optional[int] = None,
-                   keep_null_values: bool = Config.default_keep_null_values,
-                   logger: log.Logger = log.DEFAULT_LOGGER) -> List[Optional[str]]:
-    files = [file for file in filenames if file is not None]
-    if not keep_null_values:
-        filenames = files
-
-    if len(files) == 0:
-        logger.warning("No files available to " + action_name)
-        return filenames
-
-    if max_num_files is not None and max_num_files > 0:
-        files_to_process_count = min(len(files), max_num_files)
-        files = files[:files_to_process_count]
-
-    logger.debug(f"Trying to {action_name} {len(files)} files")
-
-    processed_files = list()
-    processed_files_count = 0
-
-    for filename in filenames:
-        if filename is None:
-            processed_file = None
-        else:
-            processed_file = file_processor(filename)
-
-        processed_files.append(processed_file)
-
-        if processed_file is not None:
-            processed_files_count += 1
-
-            if max_num_files is not None and processed_files_count >= max_num_files > 0:
-                break
-
-    # there might be new None values in the processed_files
-    existing_processed_files = [file for file in processed_files if file is not None]
-
-    if len(existing_processed_files) > 0:
-        logger.info(f"Successfully {action_name}ed {len(existing_processed_files)} files")
-    else:
-        logger.info(f"No files were {action_name}ed")
-
-    if keep_null_values:
-        return processed_files
-    else:
-        return existing_processed_files
-
-
 def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                  skip_existing: bool = Config.default_skip_existing,
                                  max_num_files: Optional[int] = None,
@@ -438,12 +388,12 @@ def convert_mgf_files_to_parquet(filenames: List[Optional[str]],
                                            skip_existing=skip_existing,
                                            logger=logger)
 
-    return _process_files(filenames=filenames,
-                          file_processor=file_processor,
-                          action_name="mgf2parquet-convert",
-                          max_num_files=max_num_files,
-                          keep_null_values=keep_null_values,
-                          logger=logger)
+    return list(ItemProcessor(items=filenames,
+                              item_processor=file_processor,
+                              action_name="mgf2parquet-convert",
+                              max_num_items=max_num_files,
+                              keep_null_values=keep_null_values,
+                              logger=logger).process())
 
 
 def merge_mzml_and_mzid_dfs(mzml_df: pd.DataFrame,
@@ -503,6 +453,60 @@ def merge_mzml_and_mzid_files(mzml_filename: str,
     return merged_df
 
 
+def _process_mzml_and_mzid_to_parquet_merge_job(mzml_filename: str,
+                                                mzid_filename: str,
+                                                target_filename: str,
+                                                current_merge_job_index: int,
+                                                merge_job_count: int,
+                                                skip_existing: bool = Config.default_skip_existing,
+                                                mzml_key_columns: Optional[List[str]] = None,
+                                                mzid_key_columns: Optional[List[str]] = None,
+                                                logger: log.Logger = log.DEFAULT_LOGGER) -> Optional[str]:
+    if skip_existing and os.path.exists(target_filename):
+        logger.info("Skipping Merge %d/%d: '%s' + '%s' -> '%s' already exists" %
+                    (current_merge_job_index + 1, merge_job_count, mzml_filename, mzid_filename, target_filename))
+        return None
+
+    logger.info("Started Merge %d/%d: '%s' + '%s' -> '%s'" %
+                (current_merge_job_index + 1, merge_job_count, mzml_filename, mzid_filename, target_filename))
+    merged_df = merge_mzml_and_mzid_files(mzml_filename=mzml_filename,
+                                          mzid_filename=mzid_filename,
+                                          mzml_key_columns=mzml_key_columns,
+                                          mzid_key_columns=mzid_key_columns,
+                                          logger=logger)
+    merged_df.to_parquet(path=target_filename)
+    logger.info("Finished Merge %d/%d: '%s' + '%s' -> '%s'" %
+                (current_merge_job_index + 1, merge_job_count, mzml_filename, mzid_filename, target_filename))
+
+    return target_filename
+
+
+class _Mz2ParquetMergeJobProcessor:
+    def __init__(self,
+                 merge_job_count: int,
+                 skip_existing: bool = Config.default_skip_existing,
+                 mzml_key_columns: Optional[List[str]] = None,
+                 mzid_key_columns: Optional[List[str]] = None,
+                 logger: log.Logger = log.DEFAULT_LOGGER):
+        self.merge_job_count = merge_job_count
+        self.skip_existing = skip_existing
+        self.mzml_key_columns = mzml_key_columns
+        self.mzid_key_columns = mzid_key_columns
+        self.logger = logger
+
+    def __call__(self, merge_job: Tuple[int, Tuple[str, str, str]]) -> Optional[str]:
+        index, (mzml_filename, mzid_filename, target_filename) = merge_job
+        return _process_mzml_and_mzid_to_parquet_merge_job(mzml_filename=mzml_filename,
+                                                           mzid_filename=mzid_filename,
+                                                           target_filename=target_filename,
+                                                           current_merge_job_index=index,
+                                                           merge_job_count=self.merge_job_count,
+                                                           skip_existing=self.skip_existing,
+                                                           mzml_key_columns=self.mzml_key_columns,
+                                                           mzid_key_columns=self.mzid_key_columns,
+                                                           logger=self.logger)
+
+
 def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          skip_existing: bool = Config.default_skip_existing,
                                          max_num_files: Optional[int] = None,
@@ -511,6 +515,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
                                          target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
+                                         thread_count: Optional[int] = None,
                                          logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
     filenames = filter_files_list(filenames=filenames,
                                   column_filter=column_filter,
@@ -555,24 +560,18 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
         last_filename_prefix = filename_prefix
         last_extension = extension
 
-    parquet_files = []
+    item_processor = _Mz2ParquetMergeJobProcessor(merge_job_count=len(merge_jobs),
+                                                  skip_existing=skip_existing,
+                                                  mzml_key_columns=mzml_key_columns,
+                                                  mzid_key_columns=mzid_key_columns,
+                                                  logger=logger)
 
-    for i, (mzml_filename, mzid_filename, target_filename) in enumerate(merge_jobs):
-        if skip_existing and os.path.exists(target_filename):
-            logger.info("Skipping Merge %d/%d: '%s' + '%s' -> '%s' already exists" %
-                        (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
-            continue
-
-        logger.info("Started Merge %d/%d: '%s' + '%s' -> '%s'" %
-                    (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
-        merged_df = merge_mzml_and_mzid_files(mzml_filename=mzml_filename,
-                                              mzid_filename=mzid_filename,
-                                              mzml_key_columns=mzml_key_columns,
-                                              mzid_key_columns=mzid_key_columns,
-                                              logger=logger)
-        merged_df.to_parquet(path=target_filename)
-        logger.info("Finished Merge %d/%d: '%s' + '%s' -> '%s'" %
-                    (i + 1, len(merge_jobs), mzml_filename, mzid_filename, target_filename))
-        parquet_files.append(target_filename)
+    parquet_files = list(ItemProcessor(items=enumerate(merge_jobs),
+                                       item_processor=item_processor,
+                                       action_name="mzmlid-merge",
+                                       subject_name="file pairs",
+                                       keep_null_values=False,
+                                       thread_count=thread_count,
+                                       logger=logger).process())
 
     return parquet_files

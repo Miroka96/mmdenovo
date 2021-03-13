@@ -37,7 +37,7 @@ def print_df(df: Optional[pd.DataFrame],
 
     if max_num_files is not None and max_num_files != 0 and max_num_files < len(df):
         df = df[:max_num_files]
-        logger.info("Showing only the top %d entries because of the max_num_files parameter" % max_num_files)
+        logger.info("Showing only the top %d entries because of the max_num_items parameter" % max_num_files)
     if shown_columns is not None and shown_columns != []:
         columns = [col for col in shown_columns if col in df.columns]
         columns = utils.deduplicate_list(columns)
