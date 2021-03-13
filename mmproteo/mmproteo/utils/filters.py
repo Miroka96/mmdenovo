@@ -191,10 +191,10 @@ def filter_files_list(filenames: List[Optional[str]],
     :param filenames:
     :param file_extensions:
     :param max_num_files:
-    :param keep_null_values:    whether to keep null values in the given :param:`items`. Cannot be used
+    :param keep_null_values:    whether to keep null values in the given :param:`filenames`. Cannot be used
                                 with :param:`drop_duplicates`
     :param sort:
-    :param drop_duplicates:     whether to drop duplicate entries in :param:`items`. Cannot be used with
+    :param drop_duplicates:     whether to drop duplicate entries in :param:`filenames`. Cannot be used with
                                 :param:`keep_null_values`.
     :param logger:
     :return:

@@ -1,7 +1,6 @@
 import argparse
-import re
 from operator import attrgetter
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any, List, Optional, Set, Union
 
 import pandas as pd
 
@@ -154,7 +153,8 @@ class Config:
         return data_df
 
     def parse_arguments(self) -> None:
-        from mmproteo.utils import commands, pride, utils, formats
+        from mmproteo.utils import commands, pride, utils
+        from mmproteo.utils.formats.raw import get_thermo_raw_file_parser_output_formats
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter, add_help=False)
 
         parser.add_argument("command",
@@ -244,7 +244,7 @@ class Config:
                             help="Use a simpler log format and log to stdout.")
         parser.add_argument("--thermo-output-format",
                             default=self.thermo_output_format,
-                            choices=formats.get_thermo_raw_file_parser_output_formats(),
+                            choices=get_thermo_raw_file_parser_output_formats(),
                             help="the output format into which the raw file will be converted. This parameter only "
                                  f"applies to the {commands.ConvertRawCommand().get_command()} command.")
         parser.add_argument("--thermo-keep-running",

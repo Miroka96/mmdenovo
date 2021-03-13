@@ -3,13 +3,14 @@ import os
 from typing import List, NoReturn, Optional, Set, Union
 
 import pandas as pd
+import requests
 import wget
 from requests import Response
-import requests
 
 import mmproteo.utils.filters
-from mmproteo.utils import formats, log
+from mmproteo.utils import log
 from mmproteo.utils.config import Config
+from mmproteo.utils.formats import archives, read
 from mmproteo.utils.visualization import pretty_print_json
 
 
@@ -28,7 +29,7 @@ def download_file(link: str, skip_existing: bool = Config.default_skip_existing)
             downloaded_file_name = filename
             skip_reason = 'file "%s" already exists' % downloaded_file_name
 
-        extracted_file_name, extension = formats.separate_extension(filename, formats.get_extractable_file_extensions())
+        extracted_file_name, extension = read.separate_extension(filename, archives.get_extractable_file_extensions())
         file_is_extractable = len(extension) > 0
 
         if file_is_extractable:

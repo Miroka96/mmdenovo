@@ -1,4 +1,5 @@
 import multiprocessing
+import signal
 from multiprocessing.pool import Pool
 from typing import Callable, Any, Optional, Tuple, Iterable, List
 
@@ -26,11 +27,11 @@ class ItemProcessor:
     action_name: str
     subject_name: str
     keep_null_values: bool
-    max_num_items: Optional[int]
+    max_num_items: Optional[int] = None
     logger: Logger
     items_to_process_count: Optional[int] = None
     processed_items: List[Optional[Any]] = list()
-    process_pool: Optional[Pool]
+    process_pool: Optional[Pool] = None
     action_name_past_form: str
     non_null_processed_items: Optional[List[Optional[Any]]] = None
 
@@ -59,7 +60,9 @@ class ItemProcessor:
         self.logger = logger
 
         if thread_count is not None:
+            original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.process_pool = multiprocessing.Pool(processes=thread_count)
+            signal.signal(signal.SIGINT, original_sigint_handler)
 
         if self.action_name.endswith("e"):
             self.action_name_past_form = self.action_name + "d"
@@ -83,13 +86,27 @@ class ItemProcessor:
                 # limit doesn't get triggered
                 self.max_num_items = None
 
+    def __process_item_batch_in_parallel(self, item_batch: Iterable[Tuple[int, Optional[Any]]]) -> List[Optional[Any]]:
+        try:
+            indexed_results: Iterable[Tuple[int, Optional[Any]]] = self.process_pool.imap_unordered(
+                self.indexed_item_processor,
+                item_batch)
+            results: List[Optional[Any]] = [indexed_item[1] for indexed_item in sorted(indexed_results)]
+        except KeyboardInterrupt as e:
+            self.logger.info("Terminating workers")
+            self.process_pool.terminate()
+            self.process_pool.join()
+            raise e
+        else:
+            self.process_pool.close()
+            self.process_pool.join()
+            return results
+
     def __process_item_batch(self, item_batch: Iterable[Tuple[int, Optional[Any]]]):
         if self.process_pool is None:
-            results: List[Optional[Any]] = [self.item_processor(item) for index, item in item_batch]
+            results = [self.item_processor(item) for index, item in item_batch]
         else:
-            indexed_results: List[Tuple[int, Optional[Any]]] = self.process_pool.map(self.indexed_item_processor,
-                                                                                     item_batch)
-            results: List[Optional[Any]] = [indexed_item[1] for indexed_item in sorted(indexed_results)]
+            results = self.__process_item_batch_in_parallel(item_batch)
         self.processed_items += results
 
     def __process_items(self):
