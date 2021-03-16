@@ -55,9 +55,21 @@ def extract_file_if_possible(filename: Optional[str],
     return extracted_filename
 
 
+class _ArchiveFileProcessor:
+    def __init__(self,
+                 skip_existing: bool = Config.default_skip_existing,
+                 logger: log.Logger = log.DEFAULT_LOGGER):
+        self.skip_existing = skip_existing
+        self.logger = logger
+
+    def __call__(self, filename: Optional[str]) -> Optional[str]:
+        return extract_file_if_possible(filename, skip_existing=self.skip_existing, logger=self.logger)
+
+
 def extract_files(filenames: List[Optional[str]],
                   skip_existing: bool = Config.default_skip_existing,
                   max_num_files: Optional[int] = None,
+                  thread_count: int = Config.default_thread_count,
                   column_filter: Optional[AbstractFilterConditionNode] = None,
                   keep_null_values: bool = Config.default_keep_null_values,
                   pre_filter_files: bool = Config.default_pre_filter_files,
@@ -72,12 +84,12 @@ def extract_files(filenames: List[Optional[str]],
                                       sort=not keep_null_values,
                                       logger=logger)
 
-    def file_processor(filename: Optional[str]) -> Optional[str]:
-        return extract_file_if_possible(filename, skip_existing=skip_existing, logger=logger)
+    file_processor = _ArchiveFileProcessor(skip_existing=skip_existing, logger=logger)
 
     return list(ItemProcessor(items=filenames,
                               item_processor=file_processor,
                               action_name="extract",
                               max_num_items=max_num_files,
+                              thread_count=thread_count,
                               keep_null_values=keep_null_values,
                               logger=logger).process())

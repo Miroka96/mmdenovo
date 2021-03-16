@@ -125,11 +125,34 @@ def convert_raw_file(filename: Optional[str],
         return None
 
 
+class _RawFileProcessor:
+    def __init__(self,
+                 output_format: str = Config.default_thermo_output_format,
+                 skip_existing: bool = Config.default_skip_existing,
+                 thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
+                 thermo_exec_command: str = Config.default_thermo_exec_command,
+                 logger: log.Logger = log.DEFAULT_LOGGER):
+        self.output_format = output_format
+        self.skip_existing = skip_existing
+        self.thermo_docker_container_name = thermo_docker_container_name
+        self.thermo_exec_command = thermo_exec_command
+        self.logger = logger
+
+    def __call__(self, filename: Optional[str]) -> Optional[str]:
+        return convert_raw_file(filename=filename,
+                                output_format=self.output_format,
+                                skip_existing=self.skip_existing,
+                                thermo_docker_container_name=self.thermo_docker_container_name,
+                                thermo_exec_command=self.thermo_exec_command,
+                                logger=self.logger)
+
+
 def convert_raw_files(filenames: List[Optional[str]],
                       output_format: str = Config.default_thermo_output_format,
                       skip_existing: bool = Config.default_skip_existing,
                       column_filter: Optional[AbstractFilterConditionNode] = None,
                       max_num_files: Optional[int] = None,
+                      thread_count: int = Config.default_thread_count,
                       keep_null_values: bool = Config.default_keep_null_values,
                       pre_filter_files: bool = Config.default_pre_filter_files,
                       thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
@@ -147,17 +170,16 @@ def convert_raw_files(filenames: List[Optional[str]],
                                       sort=not keep_null_values,
                                       logger=logger)
 
-    def file_processor(filename: Optional[str]) -> Optional[str]:
-        return convert_raw_file(filename=filename,
-                                output_format=output_format,
-                                skip_existing=skip_existing,
-                                thermo_docker_container_name=thermo_docker_container_name,
-                                thermo_exec_command=thermo_exec_command,
-                                logger=logger)
+    file_processor = _RawFileProcessor(output_format=output_format,
+                                       skip_existing=skip_existing,
+                                       thermo_docker_container_name=thermo_docker_container_name,
+                                       thermo_exec_command=thermo_exec_command,
+                                       logger=logger)
 
     return list(ItemProcessor(items=filenames,
                               item_processor=file_processor,
                               action_name=f"raw2{output_format}-convert",
                               max_num_items=max_num_files,
+                              thread_count=thread_count,
                               keep_null_values=keep_null_values,
                               logger=logger).process())

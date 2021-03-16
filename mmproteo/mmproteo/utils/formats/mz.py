@@ -130,7 +130,7 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
                                          mzid_key_columns: Optional[List[str]] = None,
                                          prefix_length_tolerance: int = 0,
                                          target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
-                                         thread_count: Optional[int] = None,
+                                         thread_count: int = Config.default_thread_count,
                                          logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
     filenames = filter_files_list(filenames=filenames,
                                   column_filter=column_filter,

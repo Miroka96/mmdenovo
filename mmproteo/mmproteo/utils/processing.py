@@ -42,10 +42,10 @@ class ItemProcessor:
                  subject_name: str = "files",
                  max_num_items: Optional[int] = None,
                  keep_null_values: bool = Config.default_keep_null_values,
-                 thread_count: Optional[int] = None,
+                 thread_count: int = Config.default_thread_count,
                  logger: log.Logger = log.DEFAULT_LOGGER):
         if thread_count == 0:
-            thread_count = None
+            thread_count = multiprocessing.cpu_count()
 
         if max_num_items == 0:
             max_num_items = None
@@ -59,7 +59,7 @@ class ItemProcessor:
         self.max_num_items = max_num_items
         self.logger = logger
 
-        if thread_count is not None:
+        if thread_count != 1:
             original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.process_pool = multiprocessing.Pool(processes=thread_count)
             signal.signal(signal.SIGINT, original_sigint_handler)

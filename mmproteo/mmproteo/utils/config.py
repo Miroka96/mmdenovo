@@ -91,6 +91,7 @@ class Config:
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
     default_mzid_key_columns: List[str] = ['name', 'spectrumID']
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
+    default_thread_count: int = 1
 
     def __init__(self):
         from mmproteo.utils import formats
@@ -113,6 +114,7 @@ class Config:
         self.terminate_process: bool = False
         self.thermo_output_format: str = self.default_thermo_output_format
         self.thermo_keep_container_running: bool = self.default_thermo_keep_container_running
+        self.thread_count = self.default_thread_count
 
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
@@ -274,6 +276,13 @@ class Config:
                                  "conjunctive normal form. As some commands can be pipelined to use previous results, "
                                  "there are also the following special column names available: " +
                                  f"[{self.get_string_of_special_column_names()}]. An empty list disables this filter.")
+        parser.add_argument("--thread-count",
+                            metavar="THREADS",
+                            default=self.thread_count,
+                            type=int,
+                            help="the number of threads to use for parallel processing. Set it to '0' to use as many "
+                                 "threads as there are CPU cores. Setting the number of threads to '1' disables "
+                                 "parallel processing.")
 
         args = parser.parse_args()
 
@@ -296,6 +305,7 @@ class Config:
         )
         self.thermo_output_format = args.thermo_output_format
         self.thermo_keep_container_running = args.thermo_keep_running
+        self.thread_count = args.thread_count
 
         self.commands = utils.deduplicate_list(args.command)
 
@@ -306,6 +316,8 @@ class Config:
     def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
+        logger.assert_true(self.thread_count >= 0, "thread-count must be >= 0; use 0 to automatically set the number "
+                                                   "of threads")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils
