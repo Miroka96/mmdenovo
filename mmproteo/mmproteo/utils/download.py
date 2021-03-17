@@ -44,32 +44,32 @@ def download_file(link: str, skip_existing: bool = Config.default_skip_existing)
     return downloaded_file_name, skip_reason
 
 
-def download_files(links: List[str],
+def download_files(download_urls: List[str],
                    skip_existing: bool = Config.default_skip_existing,
                    count_failed_files: bool = Config.default_count_failed_files,
                    logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
-    num_files = len(links)
+    download_url_count = len(download_urls)
 
-    if num_files > 1:
+    if download_url_count > 1:
         plural_s = "s"
     else:
         plural_s = ""
-    logger.info(f"Downloading {num_files} file{plural_s}")
+    logger.info(f"Downloading {download_url_count} file{plural_s}")
 
     files_downloaded_count = 0
-    files_processed = 1
+    current_download_index = 1
 
     downloaded_files_names = []
 
-    for link in links:
-        logger.info("Downloading file %d/%d: %s" % (files_processed, num_files, link))
+    for current_url in download_urls:
+        logger.info(f"Downloading file {current_download_index}/{download_url_count}: {current_url}")
 
         try:
-            downloaded_file_name, skip_reason = download_file(link, skip_existing)
+            downloaded_file_name, skip_reason = download_file(current_url, skip_existing)
         except Exception as e:
             downloaded_file_name, skip_reason = None, None
-            logger.info('Failed to download file %d/%d ("%s") because of "%s"' %
-                        (files_processed, num_files, link, e))
+            logger.info(f'Failed to download file {current_download_index}/{download_url_count} ("{current_url}") '
+                        f'because of "{e}"')
         downloaded_file_available = downloaded_file_name is not None
         download_skipped = skip_reason is not None
         download_succeeded = downloaded_file_available or download_skipped
@@ -79,12 +79,12 @@ def download_files(links: List[str],
                 logger.info('Skipped download, because ' + skip_reason)
             else:
                 files_downloaded_count += 1
-                logger.info('Downloaded file %d/%d: "%s"' % (files_processed, num_files, link))
+                logger.info(f'Downloaded file {current_download_index}/{download_url_count}: "{current_url}"')
 
         downloaded_files_names.append(downloaded_file_name)
 
         if download_succeeded or count_failed_files:
-            files_processed += 1
+            current_download_index += 1
 
     if files_downloaded_count > 1:
         plural_s = "s"
@@ -118,7 +118,7 @@ def download_filtered_files(project_files: pd.DataFrame,
     initial_directory = os.getcwd()
     os.chdir(download_dir)
 
-    filtered_files[downloaded_files_column] = download_files(links=filtered_files[download_link_column],
+    filtered_files[downloaded_files_column] = download_files(download_urls=filtered_files[download_link_column],
                                                              skip_existing=skip_existing,
                                                              count_failed_files=count_failed_files,
                                                              logger=logger)

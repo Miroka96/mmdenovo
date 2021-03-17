@@ -232,7 +232,6 @@ class Mgf2ParquetCommand(AbstractCommand):
 
 
 class Mz2ParquetCommand(AbstractCommand):
-
     def get_command(self) -> str:
         return "mz2parquet"
 
