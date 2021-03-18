@@ -146,7 +146,7 @@ def filter_files_df(files_df: Optional[pd.DataFrame],
                            file_name_column)
         required_file_extensions = file_extensions
 
-        from mmproteo.utils.formats import get_extractable_file_extensions
+        from mmproteo.utils.formats.archives import get_extractable_file_extensions
         optional_file_extensions = get_extractable_file_extensions()
         optional_file_extensions -= set(required_file_extensions)
 

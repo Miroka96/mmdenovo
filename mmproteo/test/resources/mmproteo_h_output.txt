@@ -5,8 +5,8 @@ usage: mmproteo [--count-failed-files] [--dummy-logger]
                 [--pride-project PROJECT] [--pride-version {1,2}]
                 [--shown-columns COLUMNS] [--storage-dir DIR]
                 [--thermo-keep-running]
-                [--thermo-output-format {imzml,mgf,mzml,parquet}] [--verbose]
-                [--version]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}]
+                [--thread-count THREADS] [--verbose] [--version]
                 COMMAND [COMMAND ...]
 
 positional arguments:
@@ -125,6 +125,11 @@ optional arguments:
                         the output format into which the raw file will be
                         converted. This parameter only applies to the
                         convertraw command. (default: mgf)
+  --thread-count THREADS
+                        the number of threads to use for parallel processing.
+                        Set it to '0' to use as many threads as there are CPU
+                        cores. Setting the number of threads to '1' disables
+                        parallel processing. (default: 1)
   --verbose, -v         Increase output verbosity to debug level. (default:
                         False)
   --version             Show the version of this software.
