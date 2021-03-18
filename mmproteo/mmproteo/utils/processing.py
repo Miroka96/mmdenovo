@@ -35,6 +35,7 @@ class ItemProcessor:
                  subject_name: str = "file",
                  max_num_items: Optional[int] = None,
                  keep_null_values: bool = Config.default_keep_null_values,
+                 count_null_results: bool = Config.default_count_null_results,
                  count_failed_items: bool = Config.default_count_failed_files,
                  thread_count: int = Config.default_thread_count,
                  logger: log.Logger = log.DEFAULT_LOGGER):
@@ -49,6 +50,7 @@ class ItemProcessor:
         self.action_name = action_name
         self.subject_name = subject_name
         self.keep_null_values = keep_null_values
+        self.count_null_results = count_null_results
         self.count_failed_items = count_failed_items
         self.max_num_items = max_num_items
         self.logger = logger
@@ -123,7 +125,7 @@ class ItemProcessor:
         return items
 
     def count_successfully_processed_items(self) -> int:
-        return len(self.__get_processing_results(keep_null_items=False,
+        return len(self.__get_processing_results(keep_null_items=self.count_null_results,
                                                  keep_exceptions_as_nulls=self.count_failed_items))
 
     def __process_items(self) -> None:

@@ -42,8 +42,8 @@ positional arguments:
                                       the files in the data directory.
 
 optional arguments:
-  --count-failed-files  Count failed files and do not just skip them. This is
-                        relevant for the max-num-files parameter. (default:
+  --count-failed-files  Count failed files and do not just ignore them. This
+                        is relevant for the max-num-files parameter. (default:
                         True)
   --dummy-logger        Use a simpler log format and log to stdout. (default:
                         False)

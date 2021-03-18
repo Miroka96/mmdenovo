@@ -86,6 +86,8 @@ class Config:
     default_filter_separator_regex: str = "[=!]="
     default_filter_or_separator: str = " or "
     default_count_failed_files: bool = False
+    default_count_null_results: bool = False
+    default_count_skipped_files: bool = True
     default_keep_null_values: bool = False
     default_pre_filter_files: bool = True
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
@@ -179,7 +181,7 @@ class Config:
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
         parser.add_argument("--count-failed-files",
                             action="store_" + str(self.count_failed_files).lower(),
-                            help="Count failed files and do not just skip them. " +
+                            help="Count failed files and do not just ignore them. " +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("--storage-dir", "-d",
                             metavar="DIR",
