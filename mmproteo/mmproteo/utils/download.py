@@ -66,12 +66,12 @@ def handle_file_download(download_url: str,
                          download_count: int,
                          skip_existing: bool = Config.default_skip_existing,
                          logger: log.Logger = log.DEFAULT_LOGGER) -> Union[Optional[str], NoReturn]:
-    logger.info(f"Downloading file {current_download_index}/{download_count}: {download_url}")
+    logger.info(f"Downloading file {current_download_index + 1}/{download_count}: {download_url}")
 
     try:
         downloaded_file_name, skip_reason = download_file(download_url, skip_existing)
     except Exception as e:
-        logger.info(f'Failed to download file {current_download_index}/{download_count} ("{download_url}") '
+        logger.info(f'Failed to download file {current_download_index + 1}/{download_count} ("{download_url}") '
                     f'because of "{e}"')
         raise
 
@@ -79,7 +79,7 @@ def handle_file_download(download_url: str,
         logger.info('Skipped download, because ' + skip_reason)
         return None
     else:
-        logger.info(f'Downloaded file {current_download_index}/{download_count}: "{download_url}"')
+        logger.info(f'Downloaded file {current_download_index + 1}/{download_count}: "{download_url}"')
         return downloaded_file_name
 
 

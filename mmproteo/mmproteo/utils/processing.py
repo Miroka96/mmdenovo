@@ -1,12 +1,10 @@
 import gc
 import multiprocessing
 import signal
-from multiprocessing.pool import Pool
 from typing import Callable, Any, Optional, Tuple, Iterable, List, NoReturn, Union
 
 from mmproteo.utils import log, utils
 from mmproteo.utils.config import Config
-from mmproteo.utils.log import Logger
 
 
 class _IndexedItemProcessor:
@@ -29,19 +27,6 @@ class _IndexedItemProcessor:
 
 
 class ItemProcessor:
-    items: Iterable[Optional[Any]]
-    indexed_item_processor: _IndexedItemProcessor
-    action_name: str
-    subject_name: str
-    keep_null_values: bool
-    count_failed_items: bool
-    max_num_items: Optional[int] = None
-    logger: Logger
-    items_to_process_count: Optional[int] = None
-    processed_items: List[Optional[Any]] = list()
-    process_pool: Optional[Pool] = None
-    action_name_past_form: str
-
     def __init__(self,
                  items: Iterable[Optional[Any]],
                  item_processor: Callable[[Any], Union[Optional[str], NoReturn]],
@@ -59,7 +44,7 @@ class ItemProcessor:
         if max_num_items == 0:
             max_num_items = None
 
-        self.items = items
+        self.items = list(items)
         self.indexed_item_processor = _IndexedItemProcessor(item_processor)
         self.action_name = action_name
         self.subject_name = subject_name
@@ -72,6 +57,8 @@ class ItemProcessor:
             original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.process_pool = multiprocessing.Pool(processes=thread_count)
             signal.signal(signal.SIGINT, original_sigint_handler)
+        else:
+            self.process_pool = None
 
         if action_name_past_form is None:
             if action_name.endswith("e"):
@@ -79,6 +66,7 @@ class ItemProcessor:
             else:
                 action_name_past_form = action_name + "ed"
         self.action_name_past_form = action_name_past_form
+        self.processing_results: List[Optional[Any]] = list()
 
     def __drop_null_items(self):
         non_null_items = [item for item in self.items if item is not None]
@@ -98,12 +86,12 @@ class ItemProcessor:
                 # limit doesn't get triggered
                 self.max_num_items = None
 
-    def __process_item_batch_in_parallel(self, item_batch: Iterable[Tuple[int, Optional[Any]]]) -> List[Optional[Any]]:
+    def __process_indexed_item_batch_in_parallel(self, indexed_item_batch: Iterable[Tuple[int, Optional[Any]]]) \
+            -> Iterable[Tuple[int, Optional[Any]]]:
         try:
             indexed_results: Iterable[Tuple[int, Optional[Any]]] = self.process_pool.imap_unordered(
                 self.indexed_item_processor,
-                item_batch)
-            results: List[Optional[Any]] = [indexed_item[1] for indexed_item in sorted(indexed_results)]
+                indexed_item_batch)
         except KeyboardInterrupt:
             self.logger.info("Terminating workers")
             self.process_pool.terminate()
@@ -112,19 +100,20 @@ class ItemProcessor:
         else:
             self.process_pool.close()
             self.process_pool.join()
-            return results
+            return indexed_results
 
-    def __process_item_batch(self, item_batch: Iterable[Tuple[int, Optional[Any]]]):
+    def __process_indexed_item_batch(self, indexed_item_batch: Iterable[Tuple[int, Optional[Any]]]):
         if self.process_pool is None:
-            results = [self.indexed_item_processor(indexed_item) for indexed_item in enumerate(item_batch)]
+            indexed_results = [self.indexed_item_processor(indexed_item) for indexed_item in indexed_item_batch]
         else:
-            results = self.__process_item_batch_in_parallel(item_batch)
-        self.processed_items += results
+            indexed_results = self.__process_indexed_item_batch_in_parallel(indexed_item_batch)
+        results: List[Optional[Any]] = [indexed_item[1] for indexed_item in sorted(indexed_results)]
+        self.processing_results += results
 
-    def __get_processed_items(self,
-                              keep_null_items: bool = False,
-                              keep_exceptions_as_nulls: bool = False) -> List[Any]:
-        items = self.processed_items
+    def __get_processing_results(self,
+                                 keep_null_items: bool = False,
+                                 keep_exceptions_as_nulls: bool = False) -> List[Any]:
+        items = self.processing_results
         if not keep_null_items:
             items = [item for item in items if item is not None]
         if keep_exceptions_as_nulls:
@@ -134,19 +123,20 @@ class ItemProcessor:
         return items
 
     def count_successfully_processed_items(self) -> int:
-        return len(self.__get_processed_items(keep_null_items=False, keep_exceptions_as_nulls=self.count_failed_items))
+        return len(self.__get_processing_results(keep_null_items=False,
+                                                 keep_exceptions_as_nulls=self.count_failed_items))
 
     def __process_items(self) -> None:
-        indexed_items = enumerate(self.items)
+        indexed_items = list(enumerate(self.items))
         if self.max_num_items is None:
-            self.__process_item_batch(indexed_items)
+            self.__process_indexed_item_batch(indexed_items)
         else:
             while self.items_to_process_count > 0:
-                processed_items_count = len(self.processed_items)
+                processed_items_count = len(self.processing_results)
                 current_item_batch = indexed_items[processed_items_count:
                                                    processed_items_count + self.items_to_process_count]
 
-                self.__process_item_batch(current_item_batch)
+                self.__process_indexed_item_batch(current_item_batch)
 
                 self.items_to_process_count = self.max_num_items - self.count_successfully_processed_items()
 
@@ -170,5 +160,5 @@ class ItemProcessor:
         self.__process_items()
         self.__evaluate_results_textually()
 
-        return self.__get_processed_items(keep_null_items=self.keep_null_values,
-                                          keep_exceptions_as_nulls=self.keep_null_values)
+        return self.__get_processing_results(keep_null_items=self.keep_null_values,
+                                             keep_exceptions_as_nulls=self.keep_null_values)

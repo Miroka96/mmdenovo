@@ -42,15 +42,15 @@ def extract_file_if_possible(filename: Optional[str],
     extraction_command = _FILE_EXTRACTION_CONFIG[file_ext]["command"] % filename
 
     if skip_existing and os.path.isfile(extracted_filename):
-        logger.info('Skipping extraction, because "%s" already exists' % extracted_filename)
+        logger.info(f'Skipping extraction, because "{extracted_filename}" already exists')
         return extracted_filename
 
     logger.info("Extracting file using '%s'" % extraction_command)
     return_code = os.system(extraction_command)
     if return_code == 0:
-        logger.info("Extracted file")
+        logger.info(f"Extracted file '{extracted_filename}'")
     else:
-        logger.warning('Failed extracting file "%s" (return code = %d)' % (filename, return_code))
+        logger.warning(f'Failed extracting file "{filename}" (return code = {return_code})')
 
     return extracted_filename
 
@@ -63,7 +63,7 @@ class _ArchiveFileProcessor:
         self.logger = logger
 
     def __call__(self, filename: Optional[str]) -> Optional[str]:
-        return extract_file_if_possible(filename, skip_existing=self.skip_existing, logger=self.logger)
+        return extract_file_if_possible(filename=filename, skip_existing=self.skip_existing, logger=self.logger)
 
 
 def extract_files(filenames: List[Optional[str]],
