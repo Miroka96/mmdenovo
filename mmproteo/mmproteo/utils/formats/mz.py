@@ -122,37 +122,14 @@ class _Mz2ParquetMergeJobProcessor:
                                                            logger=self.logger)
 
 
-def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
-                                         skip_existing: bool = Config.default_skip_existing,
-                                         max_num_files: Optional[int] = None,
-                                         column_filter: Optional[AbstractFilterConditionNode] = None,
-                                         mzml_key_columns: Optional[List[str]] = None,
-                                         mzid_key_columns: Optional[List[str]] = None,
-                                         prefix_length_tolerance: int = 0,
-                                         target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
-                                         thread_count: int = Config.default_thread_count,
-                                         logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
-    filenames = filter_files_list(filenames=filenames,
-                                  column_filter=column_filter,
-                                  sort=False,
-                                  logger=logger)
-
-    filenames_and_extensions = [(filename, read.separate_extension(filename=filename, extensions={"mzml", "mzid"}))
-                                for filename in filenames if filename is not None]
-    filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if
-                                len(ext) > 0]
-    if len(filenames_and_extensions) < 2:
-        logger.warning("No MzML and MzID files available for merging")
-        return []
+def _create_merge_jobs(filenames_and_extensions: List[Tuple[str, Tuple[str, str]]],
+                       prefix_length_tolerance: int,
+                       target_filename_postfix: str) -> List[Tuple[str, str, str]]:
     filenames_and_extensions = sorted(filenames_and_extensions)
-
     merge_jobs = []
 
     last_filename, (last_filename_prefix, last_extension) = filenames_and_extensions[0]
     for filename, (filename_prefix, extension) in filenames_and_extensions[1:]:
-        if max_num_files is not None and 0 < max_num_files <= len(merge_jobs):
-            break
-
         if last_filename is not None and extension != last_extension:
             common_filename_prefix_length = len(os.path.commonprefix([filename_prefix, last_filename_prefix]))
             required_filename_prefix_length = min(len(filename_prefix),
@@ -175,6 +152,38 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
         last_filename_prefix = filename_prefix
         last_extension = extension
 
+    return merge_jobs
+
+
+def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
+                                         skip_existing: bool = Config.default_skip_existing,
+                                         max_num_files: Optional[int] = None,
+                                         count_failed_files: bool = Config.default_count_failed_files,
+                                         column_filter: Optional[AbstractFilterConditionNode] = None,
+                                         mzml_key_columns: Optional[List[str]] = None,
+                                         mzid_key_columns: Optional[List[str]] = None,
+                                         prefix_length_tolerance: int = 0,
+                                         target_filename_postfix: str = Config.default_mzmlid_parquet_file_postfix,
+                                         thread_count: int = Config.default_thread_count,
+                                         logger: log.Logger = log.DEFAULT_LOGGER) -> List[str]:
+    filenames = filter_files_list(filenames=filenames,
+                                  column_filter=column_filter,
+                                  sort=False,
+                                  logger=logger)
+
+    filenames_and_extensions: List[Tuple[str, Tuple[str, str]]] \
+        = [(filename, read.separate_extension(filename=filename, extensions={"mzml", "mzid"}))
+           for filename in filenames if filename is not None]
+    filenames_and_extensions = [(filename, (file, ext)) for filename, (file, ext) in filenames_and_extensions if
+                                len(ext) > 0]
+    if len(filenames_and_extensions) < 2:
+        logger.warning("No MzML and MzID files available for merging")
+        return []
+
+    merge_jobs = _create_merge_jobs(filenames_and_extensions=filenames_and_extensions,
+                                    prefix_length_tolerance=prefix_length_tolerance,
+                                    target_filename_postfix=target_filename_postfix)
+
     item_processor = _Mz2ParquetMergeJobProcessor(merge_job_count=len(merge_jobs),
                                                   skip_existing=skip_existing,
                                                   mzml_key_columns=mzml_key_columns,
@@ -184,11 +193,12 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
     parquet_files = list(ItemProcessor(items=enumerate(merge_jobs),
                                        item_processor=item_processor,
                                        action_name="mzmlid-merge",
-                                       subject_name="file pairs",
+                                       subject_name="file pair",
+                                       max_num_items=max_num_files,
+                                       count_failed_items=count_failed_files,
                                        keep_null_values=False,
                                        thread_count=thread_count,
                                        logger=logger).process())
-
     return parquet_files
 
 

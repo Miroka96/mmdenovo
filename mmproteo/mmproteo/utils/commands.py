@@ -40,6 +40,7 @@ class DownloadCommand(AbstractCommand):
                                           download_link_column=config.default_download_link_column,
                                           downloaded_files_column=config.default_downloaded_files_column,
                                           api_versions=config.pride_versions,
+                                          thread_count=config.thread_count,
                                           logger=logger)
 
         downloaded_files = downloaded_files.dropna(subset=[config.default_downloaded_files_column])
@@ -132,6 +133,7 @@ class ExtractCommand(AbstractCommand):
         extracted_files = archives.extract_files(filenames=files,
                                                  skip_existing=config.skip_existing,
                                                  max_num_files=config.max_num_files,
+                                                 count_failed_files=config.count_failed_files,
                                                  thread_count=config.thread_count,
                                                  column_filter=config.column_filter,
                                                  keep_null_values=False,
@@ -173,6 +175,7 @@ class ConvertRawCommand(AbstractCommand):
                                                 output_format=config.thermo_output_format,
                                                 skip_existing=config.skip_existing,
                                                 max_num_files=config.max_num_files,
+                                                count_failed_files=config.count_failed_files,
                                                 thread_count=config.thread_count,
                                                 column_filter=config.column_filter,
                                                 keep_null_values=False,
@@ -221,6 +224,7 @@ class Mgf2ParquetCommand(AbstractCommand):
         mgf_parquet_files = mgf.convert_mgf_files_to_parquet(filenames=files,
                                                              skip_existing=config.skip_existing,
                                                              max_num_files=config.max_num_files,
+                                                             count_failed_files=config.count_failed_files,
                                                              thread_count=config.thread_count,
                                                              column_filter=config.column_filter,
                                                              keep_null_values=False,
@@ -251,6 +255,7 @@ class Mz2ParquetCommand(AbstractCommand):
         mzmlid_parquet_files = mz.merge_mzml_and_mzid_files_to_parquet(filenames=files,
                                                                        skip_existing=config.skip_existing,
                                                                        max_num_files=config.max_num_files,
+                                                                       count_failed_files=config.count_failed_files,
                                                                        thread_count=config.thread_count,
                                                                        column_filter=config.column_filter,
                                                                        logger=logger)

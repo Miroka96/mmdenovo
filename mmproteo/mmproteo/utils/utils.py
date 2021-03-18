@@ -121,6 +121,13 @@ def flatten_dict(input_dict: dict,
     return result_dict
 
 
+def get_plural_s(count: int) -> str:
+    if count > 1:
+        return "s"
+    else:
+        return ""
+
+
 def list_of_dicts_to_dict(items: List[Dict], dict_key: str) -> Union[Optional[Dict], NoReturn]:
     all_have_key = True
 

@@ -4,7 +4,7 @@ import signal
 from multiprocessing.pool import Pool
 from typing import Callable, Any, Optional, Tuple, Iterable, List, NoReturn, Union
 
-from mmproteo.utils import log
+from mmproteo.utils import log, utils
 from mmproteo.utils.config import Config
 from mmproteo.utils.log import Logger
 
@@ -34,7 +34,7 @@ class ItemProcessor:
     action_name: str
     subject_name: str
     keep_null_values: bool
-    count_failed_files: bool
+    count_failed_items: bool
     max_num_items: Optional[int] = None
     logger: Logger
     items_to_process_count: Optional[int] = None
@@ -46,10 +46,11 @@ class ItemProcessor:
                  items: Iterable[Optional[Any]],
                  item_processor: Callable[[Any], Union[Optional[str], NoReturn]],
                  action_name: str,
-                 subject_name: str = "files",
+                 action_name_past_form: Optional[str] = None,
+                 subject_name: str = "file",
                  max_num_items: Optional[int] = None,
                  keep_null_values: bool = Config.default_keep_null_values,
-                 count_failed_files: bool = Config.default_count_failed_files,
+                 count_failed_items: bool = Config.default_count_failed_files,
                  thread_count: int = Config.default_thread_count,
                  logger: log.Logger = log.DEFAULT_LOGGER):
         if thread_count == 0:
@@ -63,7 +64,7 @@ class ItemProcessor:
         self.action_name = action_name
         self.subject_name = subject_name
         self.keep_null_values = keep_null_values
-        self.count_failed_files = count_failed_files
+        self.count_failed_items = count_failed_items
         self.max_num_items = max_num_items
         self.logger = logger
 
@@ -72,10 +73,12 @@ class ItemProcessor:
             self.process_pool = multiprocessing.Pool(processes=thread_count)
             signal.signal(signal.SIGINT, original_sigint_handler)
 
-        if self.action_name.endswith("e"):
-            self.action_name_past_form = self.action_name + "d"
-        else:
-            self.action_name_past_form = self.action_name + "ed"
+        if action_name_past_form is None:
+            if action_name.endswith("e"):
+                action_name_past_form = action_name + "d"
+            else:
+                action_name_past_form = action_name + "ed"
+        self.action_name_past_form = action_name_past_form
 
     def __drop_null_items(self):
         non_null_items = [item for item in self.items if item is not None]
@@ -85,7 +88,8 @@ class ItemProcessor:
             self.items = non_null_items
 
         if self.items_to_process_count == 0:
-            self.logger.warning(f"No {self.subject_name} available to {self.action_name}")
+            self.logger.warning(f"No {self.subject_name}s available "
+                                f"to {self.action_name}")
 
     def __limit_number_of_items_to_process(self):
         if self.max_num_items is not None:
@@ -117,14 +121,20 @@ class ItemProcessor:
             results = self.__process_item_batch_in_parallel(item_batch)
         self.processed_items += results
 
-    def __get_successfully_processed_items(self) -> List[Any]:
-        items = [item for item in self.processed_items if item is not None]
-        if not self.count_failed_files:
+    def __get_processed_items(self,
+                              keep_null_items: bool = False,
+                              keep_exceptions_as_nulls: bool = False) -> List[Any]:
+        items = self.processed_items
+        if not keep_null_items:
+            items = [item for item in items if item is not None]
+        if keep_exceptions_as_nulls:
+            items = [None if isinstance(item, Exception) else item for item in items]
+        else:
             items = [item for item in items if not isinstance(item, Exception)]
         return items
 
-    def __count_successfully_processed_items(self) -> int:
-        return len(self.__get_successfully_processed_items())
+    def count_successfully_processed_items(self) -> int:
+        return len(self.__get_processed_items(keep_null_items=False, keep_exceptions_as_nulls=self.count_failed_items))
 
     def __process_items(self) -> None:
         indexed_items = enumerate(self.items)
@@ -138,27 +148,27 @@ class ItemProcessor:
 
                 self.__process_item_batch(current_item_batch)
 
-                self.items_to_process_count = self.max_num_items - self.__count_successfully_processed_items()
+                self.items_to_process_count = self.max_num_items - self.count_successfully_processed_items()
 
-    def __evaluate_results(self) -> None:
-        successfully_processed_items_count = self.__count_successfully_processed_items()
+    def __evaluate_results_textually(self) -> None:
+        successfully_processed_items_count = self.count_successfully_processed_items()
         if successfully_processed_items_count > 0:
             self.logger.info(
-                f"Successfully {self.action_name_past_form} {successfully_processed_items_count} {self.subject_name}")
+                f"Successfully {self.action_name_past_form} {successfully_processed_items_count} {self.subject_name}"
+                f"{utils.get_plural_s(successfully_processed_items_count)}")
         else:
-            self.logger.info(f"No {self.subject_name} were {self.action_name_past_form}")
+            self.logger.info(f"No {self.subject_name}s were {self.action_name_past_form}")
 
     def process(self) -> Iterable[Optional[Any]]:
         self.__drop_null_items()
         if self.items_to_process_count == 0:
             return self.items
         self.__limit_number_of_items_to_process()
-        self.logger.debug(f"Trying to {self.action_name} {self.items_to_process_count} {self.subject_name}")
+        self.logger.debug(f"Trying to {self.action_name} {self.items_to_process_count} {self.subject_name}"
+                          f"{utils.get_plural_s(self.items_to_process_count)}")
 
         self.__process_items()
-        self.__evaluate_results()
+        self.__evaluate_results_textually()
 
-        if self.keep_null_values:
-            return self.processed_items
-        else:
-            return self.__get_successfully_processed_items()
+        return self.__get_processed_items(keep_null_items=self.keep_null_values,
+                                          keep_exceptions_as_nulls=self.keep_null_values)
