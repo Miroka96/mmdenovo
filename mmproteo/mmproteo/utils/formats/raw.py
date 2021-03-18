@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from typing import List, Optional, NoReturn
 
@@ -23,13 +24,15 @@ def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
 
     storage_dir = os.path.abspath(storage_dir)
 
-    command = thermo_start_container_command_template.format(abs_storage_dir=storage_dir,
-                                                             container_name=thermo_docker_container_name,
-                                                             image_name=thermo_docker_image)
-
-    logger.debug("Starting %s using '%s'" % (subject, command))
-    return_code = os.system(command=command)  # TODO prevent command injection, e.g. disable shell
-    logger.assert_true(return_code == 0, "Failed to start " + subject)
+    start_command = utils.format_command_template(command_template=thermo_start_container_command_template,
+                                                  formatter=lambda s: s.format(abs_storage_dir=storage_dir,
+                                                                               container_name=
+                                                                               thermo_docker_container_name,
+                                                                               image_name=thermo_docker_image))
+    start_command_str = " ".join(start_command)
+    logger.debug(f"Starting {subject} using '{start_command_str}'")
+    process_result = subprocess.run(start_command)
+    logger.assert_true(process_result.returncode == 0, "Failed to start " + subject)
 
     time.sleep(1)
     logger.assert_true(condition=utils.is_docker_container_running(thermo_docker_container_name),
@@ -38,8 +41,6 @@ def start_thermo_docker_container(storage_dir: str = Config.default_storage_dir,
 
 
 def stop_thermo_docker_container(thermo_docker_container_name: str = Config.default_thermo_docker_container_name,
-                                 thermo_stop_container_command_template: str =
-                                 Config.default_thermo_stop_container_command_template,
                                  logger: log.Logger = log.DEFAULT_LOGGER) -> None:
     subject = "ThermoRawFileParser Docker container"
 
@@ -47,13 +48,11 @@ def stop_thermo_docker_container(thermo_docker_container_name: str = Config.defa
         logger.info(subject + " is already stopped")
         return
 
-    command = thermo_stop_container_command_template.format(container_name=thermo_docker_container_name)
-
-    logger.debug("Stopping %s using '%s'" % (subject, command))
-    os.system(command=command)  # TODO prevent command injection, e.g. disable shell
+    logger.debug(f"Stopping {subject}")
+    stop_command = utils.stop_docker_container(container_name=thermo_docker_container_name)
     logger.assert_true(condition=not utils.is_docker_container_running(thermo_docker_container_name),
                        error_msg=subject + " still seems to be running")
-    logger.info("Stopped " + subject)
+    logger.info(f"Stopped {subject} using {stop_command}")
 
 
 _THERMO_RAW_FILE_PARSER_OUTPUT_FORMAT_IDS = {

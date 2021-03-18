@@ -73,10 +73,9 @@ class Config:
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.3.2--h1341992_1"
     default_thermo_start_container_command_template: str = \
         "docker run --rm -w /data -v {abs_storage_dir}:/data --name {container_name} -d {image_name} tail -f /dev/null"
-    default_thermo_stop_container_command_template: str = "docker stop {container_name}"
     default_thermo_output_format: str = "mgf"
     default_thermo_exec_command: str = "docker exec -i {container_name} ThermoRawFileParser -f {format} " \
-                                       "-i '/data/{input}' -o /data"
+                                       "-i /data/{input} -o /data"
     default_thermo_keep_container_running: bool = False
     default_option_quote: str = '"'
     default_option_separator: str = ", "

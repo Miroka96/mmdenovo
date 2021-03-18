@@ -137,6 +137,9 @@ class ItemProcessor:
                 processed_items_count = len(self.processing_results)
                 current_item_batch = indexed_items[processed_items_count:
                                                    processed_items_count + self.items_to_process_count]
+                if len(current_item_batch) == 0:
+                    self.items_to_process_count = 0
+                    break
 
                 self.__process_indexed_item_batch(current_item_batch)
 

@@ -190,7 +190,6 @@ class ConvertRawCommand(AbstractCommand):
         if not config.thermo_keep_container_running:
             raw.stop_thermo_docker_container(
                 thermo_docker_container_name=Config.default_thermo_docker_container_name,
-                thermo_stop_container_command_template=Config.default_thermo_stop_container_command_template,
                 logger=logger
             )
 
