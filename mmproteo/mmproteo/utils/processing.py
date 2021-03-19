@@ -39,13 +39,12 @@ class ItemProcessor:
                  count_failed_items: bool = Config.default_count_failed_files,
                  thread_count: int = Config.default_thread_count,
                  logger: log.Logger = log.DEFAULT_LOGGER):
-        if thread_count == 0:
-            thread_count = multiprocessing.cpu_count()
 
         if max_num_items == 0:
             max_num_items = None
 
         self.items = list(items)
+        del items
         self.indexed_item_processor = _IndexedItemProcessor(item_processor)
         self.action_name = action_name
         self.subject_name = subject_name
@@ -55,7 +54,13 @@ class ItemProcessor:
         self.max_num_items = max_num_items
         self.logger = logger
 
-        if thread_count != 1:
+        if thread_count == 0:
+            thread_count = multiprocessing.cpu_count()
+        if thread_count > len(self.items):
+            thread_count = len(self.items)
+        if max_num_items is not None and thread_count > max_num_items:
+            thread_count = max_num_items
+        if thread_count > 1:
             original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.process_pool = multiprocessing.Pool(processes=thread_count)
             signal.signal(signal.SIGINT, original_sigint_handler)
@@ -76,10 +81,6 @@ class ItemProcessor:
 
         if not self.keep_null_values:
             self.items = non_null_items
-
-        if self.items_to_process_count == 0:
-            self.logger.warning(f"No {self.subject_name}s available "
-                                f"to {self.action_name}")
 
     def __limit_number_of_items_to_process(self):
         if self.max_num_items is not None:
@@ -157,7 +158,9 @@ class ItemProcessor:
     def process(self) -> Iterable[Optional[Any]]:
         self.__drop_null_items()
         if self.items_to_process_count == 0:
+            self.logger.warning(f"No {self.subject_name}s available to {self.action_name}")
             return self.items
+
         self.__limit_number_of_items_to_process()
         self.logger.debug(f"Trying to {self.action_name} {self.items_to_process_count} {self.subject_name}"
                           f"{utils.get_plural_s(self.items_to_process_count)}")

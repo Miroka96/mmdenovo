@@ -124,7 +124,9 @@ class _Mz2ParquetMergeJobProcessor:
 
 def _create_merge_jobs(filenames_and_extensions: List[Tuple[str, Tuple[str, str]]],
                        prefix_length_tolerance: int,
-                       target_filename_postfix: str) -> List[Tuple[str, str, str]]:
+                       target_filename_postfix: str,
+                       skip_existing: bool = Config.default_skip_existing,
+                       logger: log.Logger = log.DEFAULT_LOGGER) -> List[Tuple[str, str, str]]:
     filenames_and_extensions = sorted(filenames_and_extensions)
     merge_jobs = []
 
@@ -144,8 +146,11 @@ def _create_merge_jobs(filenames_and_extensions: List[Tuple[str, Tuple[str, str]
                     mzid_filename = filename
 
                 target_filename = filename[:common_filename_prefix_length] + target_filename_postfix
-
-                merge_jobs.append((mzml_filename, mzid_filename, target_filename))
+                if skip_existing and os.path.exists(target_filename):
+                    logger.info(f"Skipping Merge: '{mzml_filename}' + '{mzid_filename}' "
+                                f"-> '{target_filename}' already exists")
+                else:
+                    merge_jobs.append((mzml_filename, mzid_filename, target_filename))
 
                 filename = None  # skip next iteration to prevent merging the same file with multiple others
         last_filename = filename
@@ -182,7 +187,9 @@ def merge_mzml_and_mzid_files_to_parquet(filenames: List[Optional[str]],
 
     merge_jobs = _create_merge_jobs(filenames_and_extensions=filenames_and_extensions,
                                     prefix_length_tolerance=prefix_length_tolerance,
-                                    target_filename_postfix=target_filename_postfix)
+                                    target_filename_postfix=target_filename_postfix,
+                                    skip_existing=skip_existing,
+                                    logger=logger)
 
     item_processor = _Mz2ParquetMergeJobProcessor(merge_job_count=len(merge_jobs),
                                                   skip_existing=skip_existing,
