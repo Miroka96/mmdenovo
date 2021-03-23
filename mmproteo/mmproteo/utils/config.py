@@ -100,6 +100,7 @@ class Config:
         self.pride_project: Optional[str] = None
         self.max_num_files: int = 0
         self.count_failed_files: bool = self.default_count_failed_files
+        self.count_skipped_files: bool = self.default_count_skipped_files
         self.storage_dir: str = self.default_storage_dir
         self.log_file: str = self.default_log_file
         self.log_to_stdout: bool = False
@@ -131,6 +132,12 @@ class Config:
     def clear_cache(self):
         self.processed_files = None
         self.project_files = None
+
+    @staticmethod
+    def _get_negation_argument_prefix(condition: bool, negation_str: str = 'no-') -> str:
+        if condition:
+            return ""
+        return negation_str
 
     def cache(self,
               data_list: Optional[List[Any]] = None,
@@ -178,9 +185,17 @@ class Config:
                             default=self.max_num_files,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
-        parser.add_argument("--count-failed-files",
+        parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_failed_files)}count-failed-files",
                             action="store_" + str(self.count_failed_files).lower(),
-                            help="Count failed files and do not just ignore them. " +
+                            dest='count_failed_files',
+                            help=("Count failed files and do not just ignore them. " if not self.count_failed_files else
+                                  "Do not count failed files and just ignore them. ") +
+                                 "This is relevant for the max-num-files parameter.")
+        parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_skipped_files)}count-skipped-files",
+                            action="store_" + str(self.count_skipped_files).lower(),
+                            dest='count_skipped_files',
+                            help=("Count skipped files and do not just ignore them. " if not self.count_skipped_files else
+                                  "Do not count skipped files and just ignore them. ") +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("--storage-dir", "-d",
                             metavar="DIR",
@@ -290,6 +305,7 @@ class Config:
         self.pride_project = args.pride_project
         self.max_num_files = args.max_num_files
         self.count_failed_files = args.count_failed_files
+        self.count_skipped_files = args.count_skipped_files
         self.storage_dir = args.storage_dir
         self.log_file = args.log_file
         self.log_to_stdout = args.log_to_stdout
@@ -319,6 +335,8 @@ class Config:
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
         logger.assert_true(self.thread_count >= 0, "thread-count must be >= 0; use 0 to automatically set the number "
                                                    "of threads")
+        if not self.skip_existing and self.count_skipped_files:
+            logger.warning("skip-existing is not set although count-skipped-files is set")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils
