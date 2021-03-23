@@ -225,8 +225,9 @@ def _run_raw_mgf_pipeline_combined(conf: Config, logger: log.Logger):
     assert len(conf.processed_files[conf.default_mgf_parquet_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced converted mgf files in parquet format"
 
-    assert get_files_in_directory(".") == {RAW_FILE, MGF_FILE, MGF_PARQUET_FILE}, \
-        "there should only be the mzML, mzid, and parquet file"
+    if conf.max_num_files == 1:
+        assert get_files_in_directory(".") == {RAW_FILE, MGF_FILE, MGF_PARQUET_FILE}, \
+            "there should only be the mzML, mzid, and parquet file"
 
 
 def test_raw_mgf_pipeline_single_threaded(run_in_temp_directory):
