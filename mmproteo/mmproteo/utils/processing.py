@@ -61,6 +61,7 @@ class ItemProcessor:
         if max_num_items is not None and thread_count > max_num_items:
             thread_count = max_num_items
         if thread_count > 1:
+            logger.debug(f"Processing items with {thread_count} subprocesses")
             original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
             self.process_pool = multiprocessing.Pool(processes=thread_count)
             signal.signal(signal.SIGINT, original_sigint_handler)
