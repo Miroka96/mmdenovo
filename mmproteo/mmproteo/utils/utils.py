@@ -1,5 +1,12 @@
 import os
-from typing import Any, Hashable, Iterable, List, Optional, Union, Dict, NoReturn
+import subprocess
+import time
+
+try:
+    from subprocess import DEVNULL  # Python 3.
+except ImportError:
+    DEVNULL = open(os.devnull, 'wb')
+from typing import Any, Hashable, Iterable, List, Optional, Union, Dict, NoReturn, Callable
 
 import numpy as np
 import pandas as pd
@@ -121,6 +128,13 @@ def flatten_dict(input_dict: dict,
     return result_dict
 
 
+def get_plural_s(count: int) -> str:
+    if count > 1:
+        return "s"
+    else:
+        return ""
+
+
 def list_of_dicts_to_dict(items: List[Dict], dict_key: str) -> Union[Optional[Dict], NoReturn]:
     all_have_key = True
 
@@ -139,12 +153,42 @@ def list_of_dicts_to_dict(items: List[Dict], dict_key: str) -> Union[Optional[Di
     return None
 
 
-def is_docker_container_running(container_name: str,
+def format_command_template(command_template: str, formatter: Callable[[str], str]) -> List[str]:
+    parts = command_template.split(" ")
+    parts = [formatter(part) for part in parts]
+    return parts
+
+
+def stop_docker_container(container_name: str,
+                          docker_stop_container_command_template: str = "docker stop {container_name}",
+                          logger: log.Logger = log.DEFAULT_LOGGER) -> str:
+    stop_command = format_command_template(docker_stop_container_command_template,
+                                           lambda s: s.format(container_name=container_name))
+    subprocess.run(stop_command)
+    stop_command_str = " ".join(stop_command)
+
+    while True:
+        status = get_docker_container_status(container_name=container_name)
+        if status is None:
+            break
+        logger.info(f"Waiting for container '{container_name}' to leave status '{status}'.")
+        time.sleep(1)
+    return stop_command_str
+
+
+def get_docker_container_status(container_name: str,
                                 docker_inspect_container_command_template: str =
-                                "docker container inspect -f '{{.State.Status}}' {container_name} > /dev/null 2>&1") \
-        -> bool:
-    return_code = os.system(docker_inspect_container_command_template.format(container_name=container_name))
-    return return_code == 0
+                                "docker container inspect -f {{{{.State.Status}}}} {container_name}") -> Optional[str]:
+    check_command = format_command_template(docker_inspect_container_command_template,
+                                            lambda s: s.format(container_name=container_name))
+    process_result = subprocess.run(check_command, stdout=subprocess.PIPE, stderr=DEVNULL)
+    if process_result.returncode != 0:
+        return None
+    return process_result.stdout.decode("utf-8")[:-1]
+
+
+def is_docker_container_running(container_name: str) -> bool:
+    return get_docker_container_status(container_name=container_name) == "running"
 
 
 def merge_column_values(df: Optional[pd.DataFrame], columns: List[str]) -> List[str]:

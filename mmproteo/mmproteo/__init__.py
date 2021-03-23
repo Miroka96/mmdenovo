@@ -1,4 +1,3 @@
-from . import *
 from . import mmproteo
 from ._version import get_versions
 

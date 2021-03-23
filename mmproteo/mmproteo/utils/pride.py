@@ -1,5 +1,6 @@
 import json
-from typing import Dict, Iterable, List, Optional
+import os
+from typing import Dict, Iterable, List, Optional, Union, NoReturn
 
 import pandas as pd
 
@@ -162,12 +163,14 @@ def download(project_name: Optional[str] = None,
              download_dir: str = Config.default_storage_dir,
              skip_existing: bool = Config.default_skip_existing,
              count_failed_files: bool = Config.default_count_failed_files,
+             count_skipped_files: bool = Config.default_count_skipped_files,
              file_name_column: str = Config.default_file_name_column,
              download_link_column: str = Config.default_download_link_column,
              downloaded_files_column: str = Config.default_downloaded_files_column,
              api_versions: List[str] = None,
+             thread_count: int = Config.default_thread_count,
              logger: log.Logger = log.DEFAULT_LOGGER) \
-        -> Optional[pd.DataFrame]:
+        -> Union[Optional[pd.DataFrame], NoReturn]:
     logger.assert_true(condition=(project_name is not None or project_files is not None),
                        error_msg="either project_name or project_files are required")
 
@@ -178,14 +181,29 @@ def download(project_name: Optional[str] = None,
         if project_files is None:
             return None
 
-    return dl.download_filtered_files(project_files=project_files,
-                                      valid_file_extensions=valid_file_extensions,
-                                      max_num_files=max_num_files,
-                                      column_filter=column_filter,
-                                      download_dir=download_dir,
-                                      skip_existing=skip_existing,
-                                      count_failed_files=count_failed_files,
-                                      file_name_column=file_name_column,
-                                      download_link_column=download_link_column,
-                                      downloaded_files_column=downloaded_files_column,
-                                      logger=logger)
+    filtered_files = mmproteo.utils.filters.filter_files_df(files_df=project_files,
+                                                            file_name_column=file_name_column,
+                                                            file_extensions=valid_file_extensions,
+                                                            max_num_files=None,
+                                                            column_filter=column_filter,
+                                                            sort=True,
+                                                            logger=logger)
+    logger.assert_true(download_link_column in filtered_files.columns,
+                       f"Could not find column '{download_link_column}' in filtered_files dataframe")
+
+    initial_directory = os.getcwd()
+    os.chdir(download_dir)
+    downloaded_files = dl.download_files(download_urls=filtered_files[download_link_column],
+                                         skip_existing=skip_existing,
+                                         count_failed_files=count_failed_files,
+                                         count_skipped_files=count_skipped_files,
+                                         max_num_files=max_num_files,
+                                         keep_null_values=True,
+                                         thread_count=thread_count,
+                                         logger=logger)
+
+    filtered_files = filtered_files.head(len(downloaded_files))
+    filtered_files[downloaded_files_column] = downloaded_files
+    os.chdir(initial_directory)
+
+    return filtered_files

@@ -1,8 +1,8 @@
 from typing import Dict, List
 
-import mmproteo.utils.filters
-from mmproteo.utils import formats, log, pride, utils, visualization
+from mmproteo.utils import filters, log, pride, utils, visualization
 from mmproteo.utils.config import Config
+from mmproteo.utils.formats import archives
 
 
 class AbstractCommand:
@@ -36,10 +36,12 @@ class DownloadCommand(AbstractCommand):
                                           download_dir=config.storage_dir,
                                           skip_existing=config.skip_existing,
                                           count_failed_files=config.count_failed_files,
+                                          count_skipped_files=config.count_skipped_files,
                                           file_name_column=config.default_file_name_column,
                                           download_link_column=config.default_download_link_column,
                                           downloaded_files_column=config.default_downloaded_files_column,
                                           api_versions=config.pride_versions,
+                                          thread_count=config.thread_count,
                                           logger=logger)
 
         downloaded_files = downloaded_files.dropna(subset=[config.default_downloaded_files_column])
@@ -96,11 +98,11 @@ class ListCommand(AbstractCommand):
         if config.project_files is None:
             return
 
-        filtered_files = mmproteo.utils.filters.filter_files_df(files_df=config.project_files,
-                                                                file_extensions=config.valid_file_extensions,
-                                                                column_filter=config.column_filter,
-                                                                sort=True,
-                                                                logger=logger)
+        filtered_files = filters.filter_files_df(files_df=config.project_files,
+                                                 file_extensions=config.valid_file_extensions,
+                                                 column_filter=config.column_filter,
+                                                 sort=True,
+                                                 logger=logger)
 
         visualization.print_df(df=filtered_files,
                                max_num_files=config.max_num_files,
@@ -120,7 +122,7 @@ class ExtractCommand(AbstractCommand):
     def get_description(self) -> str:
         return "extract all downloaded archive files or, if none were downloaded, those in the data directory. " \
                "Currently, the following archive formats are supported: " + \
-               formats.get_string_of_extractable_file_extensions()
+               archives.get_string_of_extractable_file_extensions()
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         files = utils.merge_column_values(config.processed_files,
@@ -129,13 +131,16 @@ class ExtractCommand(AbstractCommand):
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        extracted_files = formats.extract_files(filenames=files,
-                                                skip_existing=config.skip_existing,
-                                                max_num_files=config.max_num_files,
-                                                column_filter=config.column_filter,
-                                                keep_null_values=False,
-                                                pre_filter_files=True,
-                                                logger=logger)
+        extracted_files = archives.extract_files(filenames=files,
+                                                 skip_existing=config.skip_existing,
+                                                 max_num_files=config.max_num_files,
+                                                 count_failed_files=config.count_failed_files,
+                                                 count_skipped_files=config.count_skipped_files,
+                                                 thread_count=config.thread_count,
+                                                 column_filter=config.column_filter,
+                                                 keep_null_values=False,
+                                                 pre_filter_files=True,
+                                                 logger=logger)
 
         result_df = config.cache(data_list=extracted_files, column_names=config.default_extracted_files_column)
         visualization.print_df(df=result_df, logger=logger)
@@ -160,38 +165,43 @@ class ConvertRawCommand(AbstractCommand):
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        formats.start_thermo_docker_container(storage_dir=config.storage_dir,
-                                              thermo_docker_container_name=Config.default_thermo_docker_container_name,
-                                              thermo_docker_image=Config.default_thermo_docker_image,
-                                              thermo_start_container_command_template=Config.
-                                              default_thermo_start_container_command_template,
-                                              logger=logger)
+        from mmproteo.utils.formats import raw
+        raw.start_thermo_docker_container(storage_dir=config.storage_dir,
+                                          thermo_docker_container_name=Config.default_thermo_docker_container_name,
+                                          thermo_docker_image=Config.default_thermo_docker_image,
+                                          thermo_start_container_command_template=Config.
+                                          default_thermo_start_container_command_template,
+                                          logger=logger)
 
-        converted_files = formats.convert_raw_files(filenames=files,
-                                                    output_format=config.thermo_output_format,
-                                                    skip_existing=config.skip_existing,
-                                                    max_num_files=config.max_num_files,
-                                                    column_filter=config.column_filter,
-                                                    keep_null_values=False,
-                                                    pre_filter_files=True,
-                                                    thermo_docker_container_name=Config.
-                                                    default_thermo_docker_container_name,
-                                                    thermo_exec_command=Config.default_thermo_exec_command,
-                                                    logger=logger)
+        converted_files = raw.convert_raw_files(filenames=files,
+                                                output_format=config.thermo_output_format,
+                                                skip_existing=config.skip_existing,
+                                                max_num_files=config.max_num_files,
+                                                count_failed_files=config.count_failed_files,
+                                                count_skipped_files=config.count_skipped_files,
+                                                thread_count=config.thread_count,
+                                                column_filter=config.column_filter,
+                                                keep_null_values=False,
+                                                pre_filter_files=True,
+                                                thermo_docker_container_name=Config.
+                                                default_thermo_docker_container_name,
+                                                thermo_exec_command=Config.default_thermo_exec_command,
+                                                logger=logger)
 
         result_df = config.cache(converted_files, config.default_converted_raw_files_column)
 
         if not config.thermo_keep_container_running:
-            formats.stop_thermo_docker_container(
+            raw.stop_thermo_docker_container(
                 thermo_docker_container_name=Config.default_thermo_docker_container_name,
-                thermo_stop_container_command_template=Config.default_thermo_stop_container_command_template,
                 logger=logger
             )
 
         visualization.print_df(df=result_df, logger=logger)
 
     def validate(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        formats.assert_valid_thermo_output_format(output_format=config.thermo_output_format, logger=logger)
+        from mmproteo.utils.formats import raw
+        raw.assert_valid_thermo_output_format(output_format=config.thermo_output_format,
+                                              logger=logger)
 
 
 class Mgf2ParquetCommand(AbstractCommand):
@@ -212,20 +222,23 @@ class Mgf2ParquetCommand(AbstractCommand):
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        mgf_parquet_files = formats.convert_mgf_files_to_parquet(filenames=files,
-                                                                 skip_existing=config.skip_existing,
-                                                                 max_num_files=config.max_num_files,
-                                                                 column_filter=config.column_filter,
-                                                                 keep_null_values=False,
-                                                                 pre_filter_files=True,
-                                                                 logger=logger)
+        from mmproteo.utils.formats import mgf
+        mgf_parquet_files = mgf.convert_mgf_files_to_parquet(filenames=files,
+                                                             skip_existing=config.skip_existing,
+                                                             max_num_files=config.max_num_files,
+                                                             count_failed_files=config.count_failed_files,
+                                                             count_skipped_files=config.count_skipped_files,
+                                                             thread_count=config.thread_count,
+                                                             column_filter=config.column_filter,
+                                                             keep_null_values=False,
+                                                             pre_filter_files=True,
+                                                             logger=logger)
 
         result_df = config.cache(mgf_parquet_files, config.default_mgf_parquet_files_column)
         visualization.print_df(df=result_df, logger=logger)
 
 
 class Mz2ParquetCommand(AbstractCommand):
-
     def get_command(self) -> str:
         return "mz2parquet"
 
@@ -241,11 +254,15 @@ class Mz2ParquetCommand(AbstractCommand):
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
 
-        mzmlid_parquet_files = formats.merge_mzml_and_mzid_files_to_parquet(filenames=files,
-                                                                            skip_existing=config.skip_existing,
-                                                                            max_num_files=config.max_num_files,
-                                                                            column_filter=config.column_filter,
-                                                                            logger=logger)
+        from mmproteo.utils.formats import mz
+        mzmlid_parquet_files = mz.merge_mzml_and_mzid_files_to_parquet(filenames=files,
+                                                                       skip_existing=config.skip_existing,
+                                                                       max_num_files=config.max_num_files,
+                                                                       count_failed_files=config.count_failed_files,
+                                                                       count_skipped_files=config.count_skipped_files,
+                                                                       thread_count=config.thread_count,
+                                                                       column_filter=config.column_filter,
+                                                                       logger=logger)
 
         result_df = config.cache(mzmlid_parquet_files, config.default_mzmlid_parquet_files_column)
         visualization.print_df(df=result_df, logger=logger)

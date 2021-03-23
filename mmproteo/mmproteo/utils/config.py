@@ -1,7 +1,6 @@
 import argparse
-import re
 from operator import attrgetter
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any, List, Optional, Set, Union
 
 import pandas as pd
 
@@ -74,10 +73,9 @@ class Config:
     default_thermo_docker_image: str = "quay.io/biocontainers/thermorawfileparser:1.3.2--h1341992_1"
     default_thermo_start_container_command_template: str = \
         "docker run --rm -w /data -v {abs_storage_dir}:/data --name {container_name} -d {image_name} tail -f /dev/null"
-    default_thermo_stop_container_command_template: str = "docker stop {container_name}"
     default_thermo_output_format: str = "mgf"
     default_thermo_exec_command: str = "docker exec -i {container_name} ThermoRawFileParser -f {format} " \
-                                       "-i '/data/{input}' -o /data"
+                                       "-i /data/{input} -o /data"
     default_thermo_keep_container_running: bool = False
     default_option_quote: str = '"'
     default_option_separator: str = ", "
@@ -87,11 +85,14 @@ class Config:
     default_filter_separator_regex: str = "[=!]="
     default_filter_or_separator: str = " or "
     default_count_failed_files: bool = False
+    default_count_null_results: bool = False
+    default_count_skipped_files: bool = True
     default_keep_null_values: bool = False
     default_pre_filter_files: bool = True
     default_mzml_key_columns: List[str] = ['mzml_filename', 'id']
     default_mzid_key_columns: List[str] = ['name', 'spectrumID']
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
+    default_thread_count: int = 1
 
     def __init__(self):
         from mmproteo.utils import formats
@@ -99,6 +100,7 @@ class Config:
         self.pride_project: Optional[str] = None
         self.max_num_files: int = 0
         self.count_failed_files: bool = self.default_count_failed_files
+        self.count_skipped_files: bool = self.default_count_skipped_files
         self.storage_dir: str = self.default_storage_dir
         self.log_file: str = self.default_log_file
         self.log_to_stdout: bool = False
@@ -114,6 +116,7 @@ class Config:
         self.terminate_process: bool = False
         self.thermo_output_format: str = self.default_thermo_output_format
         self.thermo_keep_container_running: bool = self.default_thermo_keep_container_running
+        self.thread_count = self.default_thread_count
 
         # cache
         self.processed_files: Optional[pd.DataFrame] = None
@@ -129,6 +132,12 @@ class Config:
     def clear_cache(self):
         self.processed_files = None
         self.project_files = None
+
+    @staticmethod
+    def _get_negation_argument_prefix(condition: bool, negation_str: str = 'no-') -> str:
+        if condition:
+            return ""
+        return negation_str
 
     def cache(self,
               data_list: Optional[List[Any]] = None,
@@ -154,7 +163,8 @@ class Config:
         return data_df
 
     def parse_arguments(self) -> None:
-        from mmproteo.utils import commands, pride, utils, formats
+        from mmproteo.utils import commands, pride, utils
+        from mmproteo.utils.formats.raw import get_thermo_raw_file_parser_output_formats
         parser = argparse.ArgumentParser(formatter_class=_MultiLineArgumentDefaultsHelpFormatter, add_help=False)
 
         parser.add_argument("command",
@@ -175,9 +185,17 @@ class Config:
                             default=self.max_num_files,
                             type=int,
                             help="the maximum number of files to be downloaded. Set it to '0' to download all files.")
-        parser.add_argument("--count-failed-files",
+        parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_failed_files)}count-failed-files",
                             action="store_" + str(self.count_failed_files).lower(),
-                            help="Count failed files and do not just skip them. " +
+                            dest='count_failed_files',
+                            help=("Count failed files and do not just ignore them. " if not self.count_failed_files else
+                                  "Do not count failed files and just ignore them. ") +
+                                 "This is relevant for the max-num-files parameter.")
+        parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_skipped_files)}count-skipped-files",
+                            action="store_" + str(self.count_skipped_files).lower(),
+                            dest='count_skipped_files',
+                            help=("Count skipped files and do not just ignore them. " if not self.count_skipped_files else
+                                  "Do not count skipped files and just ignore them. ") +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("--storage-dir", "-d",
                             metavar="DIR",
@@ -244,7 +262,7 @@ class Config:
                             help="Use a simpler log format and log to stdout.")
         parser.add_argument("--thermo-output-format",
                             default=self.thermo_output_format,
-                            choices=formats.get_thermo_raw_file_parser_output_formats(),
+                            choices=get_thermo_raw_file_parser_output_formats(),
                             help="the output format into which the raw file will be converted. This parameter only "
                                  f"applies to the {commands.ConvertRawCommand().get_command()} command.")
         parser.add_argument("--thermo-keep-running",
@@ -274,12 +292,20 @@ class Config:
                                  "conjunctive normal form. As some commands can be pipelined to use previous results, "
                                  "there are also the following special column names available: " +
                                  f"[{self.get_string_of_special_column_names()}]. An empty list disables this filter.")
+        parser.add_argument("--thread-count",
+                            metavar="THREADS",
+                            default=self.thread_count,
+                            type=int,
+                            help="the number of threads to use for parallel processing. Set it to '0' to use as many "
+                                 "threads as there are CPU cores. Setting the number of threads to '1' disables "
+                                 "parallel processing.")
 
         args = parser.parse_args()
 
         self.pride_project = args.pride_project
         self.max_num_files = args.max_num_files
         self.count_failed_files = args.count_failed_files
+        self.count_skipped_files = args.count_skipped_files
         self.storage_dir = args.storage_dir
         self.log_file = args.log_file
         self.log_to_stdout = args.log_to_stdout
@@ -296,6 +322,7 @@ class Config:
         )
         self.thermo_output_format = args.thermo_output_format
         self.thermo_keep_container_running = args.thermo_keep_running
+        self.thread_count = args.thread_count
 
         self.commands = utils.deduplicate_list(args.command)
 
@@ -306,6 +333,10 @@ class Config:
     def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
+        logger.assert_true(self.thread_count >= 0, "thread-count must be >= 0; use 0 to automatically set the number "
+                                                   "of threads")
+        if not self.skip_existing and self.count_skipped_files:
+            logger.warning("skip-existing is not set although count-skipped-files is set")
 
     def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         from mmproteo.utils import utils
