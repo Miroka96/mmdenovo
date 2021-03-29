@@ -8,7 +8,7 @@ with open(os.path.join('..', 'README.md'), "r") as file:
 setup(
     name='mmproteo',
     version=versioneer.get_version(),
-    description='Mirko meets Proteomics: A PRIDE downloader on steroids for deep learning-based DeNovo Sequencing',
+    description='Mirko meets Proteomics: A PRIDE Archive downloader for deep learning-based DeNovo Sequencing',
     long_description=read_me,
     long_description_content_type="text/markdown",
     url='https://gitlab.com/dacs-hpi/pride-downloader',

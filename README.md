@@ -39,7 +39,7 @@ This installation must be repeated whenever new files are created.
 
 ### Running MMProteo
 
-The installations will make `mmproteo` available on your command line (and in your PATH),
+The installation will make `mmproteo` available on your command line (and in your PATH),
 so use this anywhere you want.
 
 Alternatively, you can run the `mmproteo-runner.py` script in the mmproteo directory.
