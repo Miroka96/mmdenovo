@@ -1,12 +1,12 @@
 import argparse
 from operator import attrgetter
-from typing import Any, List, Optional, Set, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
 import mmproteo.utils.filters
 from mmproteo._version import get_versions
-from mmproteo.utils import log, utils
+from mmproteo.utils import log, pride, utils
 
 __version__ = get_versions()['version']
 
@@ -94,7 +94,9 @@ class Config:
     default_mzmlid_parquet_file_postfix: str = "_mzmlid.parquet"
     default_thread_count: int = 1
 
-    def __init__(self):
+    def __init__(self, logger: log.Logger = log.DEFAULT_LOGGER):
+        self._logger = logger
+
         from mmproteo.utils import formats
 
         self.pride_project: Optional[str] = None
@@ -119,8 +121,21 @@ class Config:
         self.thread_count = self.default_thread_count
 
         # cache
-        self.processed_files: Optional[pd.DataFrame] = None
-        self.project_files: Optional[pd.DataFrame] = None
+        self._processed_files: Optional[pd.DataFrame] = None
+        self._project_files: Optional[pd.DataFrame] = None
+
+    def set_logger(self, logger: log.Logger) -> None:
+        self._logger = logger
+
+    def get_processed_files(self, *columns: str) -> List[str]:
+        return utils.merge_column_values(df=self._processed_files, columns=columns)
+
+    def get_project_files(self) -> Optional[pd.DataFrame]:
+        if self._project_files is None:
+            self._project_files = pride.get_project_files(project_name=self.pride_project,
+                                                          api_versions=self.pride_versions,
+                                                          logger=self._logger)
+        return self._project_files
 
     @staticmethod
     def get_string_of_special_column_names(extension_quote: str = default_option_quote,
@@ -130,8 +145,8 @@ class Config:
                                            separator=separator)
 
     def clear_cache(self):
-        self.processed_files = None
-        self.project_files = None
+        self._processed_files = None
+        self._project_files = None
 
     @staticmethod
     def _get_negation_argument_prefix(condition: bool, negation_str: str = 'no-') -> str:
@@ -139,10 +154,10 @@ class Config:
             return ""
         return negation_str
 
-    def cache(self,
-              data_list: Optional[List[Any]] = None,
-              column_names: Optional[Union[str, List[str]]] = None,
-              data_df: pd.DataFrame = None) -> Optional[pd.DataFrame]:
+    def cache_processed_files(self,
+                              data_list: Optional[List[Any]] = None,
+                              column_names: Optional[Union[str, List[str]]] = None,
+                              data_df: pd.DataFrame = None) -> Optional[pd.DataFrame]:
         assert (data_list is not None and column_names is not None and data_df is None) \
                or (data_list is None and column_names is None), "data_list and column_names must always be given " \
                                                                 "together, but never at the same time as data_df"
@@ -156,10 +171,10 @@ class Config:
 
             data_df = pd.DataFrame(data=data_list, columns=column_names)
 
-        if self.processed_files is None:
-            self.processed_files = data_df
+        if self._processed_files is None:
+            self._processed_files = data_df
         else:
-            self.processed_files = self.processed_files.append(data_df, ignore_index=True)
+            self._processed_files = self._processed_files.append(data_df, ignore_index=True)
         return data_df
 
     def parse_arguments(self) -> None:
@@ -188,14 +203,16 @@ class Config:
         parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_failed_files)}count-failed-files",
                             action="store_" + str(self.count_failed_files).lower(),
                             dest='count_failed_files',
+                            default=self.count_failed_files,
                             help=("Count failed files and do not just ignore them. " if not self.count_failed_files else
                                   "Do not count failed files and just ignore them. ") +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument(f"--{self._get_negation_argument_prefix(not self.count_skipped_files)}count-skipped-files",
                             action="store_" + str(self.count_skipped_files).lower(),
                             dest='count_skipped_files',
-                            help=("Count skipped files and do not just ignore them. " if not self.count_skipped_files else
-                                  "Do not count skipped files and just ignore them. ") +
+                            default=self.count_skipped_files,
+                            help=("Count skipped files and do not just ignore them. " if not self.count_skipped_files
+                                  else "Do not count skipped files and just ignore them. ") +
                                  "This is relevant for the max-num-files parameter.")
         parser.add_argument("--storage-dir", "-d",
                             metavar="DIR",
@@ -326,18 +343,48 @@ class Config:
 
         self.commands = utils.deduplicate_list(args.command)
 
-    def require_pride_project(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+    def require_pride_project(self, logger: Optional[log.Logger] = None) -> None:
+        if logger is None:
+            logger = self._logger
         logger.assert_true(self.pride_project is not None, Config._pride_project_parameter_str + " is missing")
-        logger.assert_true(len(self.pride_project) > 0, Config._pride_project_parameter_str + " must not be empty")
+        logger.assert_true(len(self.pride_project) > 0,
+                           Config._pride_project_parameter_str + " must not be empty")
 
-    def validate_arguments(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+    def validate_arguments(self, logger: Optional[log.Logger] = None) -> None:
+        if logger is None:
+            logger = self._logger
         logger.assert_true(self.storage_dir is None or len(self.storage_dir) > 0, "storage-dir must not be empty")
         logger.assert_true(self.max_num_files >= 0, "max-num-files must be >= 0; use 0 to process all files")
-        logger.assert_true(self.thread_count >= 0, "thread-count must be >= 0; use 0 to automatically set the number "
-                                                   "of threads")
+        logger.assert_true(self.thread_count >= 0,
+                           "thread-count must be >= 0; use 0 to automatically set the number "
+                           "of threads")
         if not self.skip_existing and self.count_skipped_files:
             logger.warning("skip-existing is not set although count-skipped-files is set")
 
-    def check(self, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+    def check(self, logger: Optional[log.Logger] = None) -> None:
+        if logger is None:
+            logger = self._logger
         from mmproteo.utils import utils
         utils.ensure_dir_exists(self.storage_dir, logger=logger)
+
+    @staticmethod
+    def __filter_vars(variables: List[Tuple[str, Any]]) -> List[Tuple[str, Any]]:
+        return [(key, value) for key, value in variables
+                if not key.startswith('_')
+                and not callable(value)
+                and not type(value) == staticmethod]
+
+    def __str__(self) -> str:
+        instance_variables: List[Tuple[str, Any]] = sorted([(key, value) for key, value in vars(self).items()])
+        instance_variables = self.__filter_vars(instance_variables)
+        class_variables: List[Tuple[str, Any]] = sorted([(key, value) for key, value in vars(type(self)).items()])
+        class_variables = self.__filter_vars(class_variables)
+        lines = [
+            "Defaults:",
+            pd.DataFrame(data=class_variables, columns=['VARIABLE', 'VALUE']).to_string(index=False),
+            "",
+            "Dynamic variables:",
+            pd.DataFrame(data=instance_variables, columns=['VARIABLE', 'VALUE']).to_string(index=False, )
+        ]
+
+        return '\n'.join(lines)

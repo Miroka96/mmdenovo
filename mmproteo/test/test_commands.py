@@ -28,23 +28,23 @@ def _run_mz_pipeline_combined(conf: config.Config, logger: log.Logger):
     assert get_files_in_directory(".") == {MZML_FILE, MZID_FILE, MZMLID_FILE}, \
         "there should only be the mzML, mzid, and parquet file"
 
-    assert conf.project_files is not None, "the project files should have been cached"
-    assert len(conf.project_files) == DEFAULT_PROJECT_FILE_COUNT, \
+    assert conf._project_files is not None, "the project files should have been cached"
+    assert len(conf._project_files) == DEFAULT_PROJECT_FILE_COUNT, \
         f"there should be {DEFAULT_PROJECT_FILE_COUNT} cached project files"
 
-    assert conf.default_downloaded_files_column in conf.processed_files, \
+    assert conf.default_downloaded_files_column in conf._processed_files, \
         "there should be references to downloaded files"
-    assert len(conf.processed_files[conf.default_downloaded_files_column].dropna()) == conf.max_num_files, \
+    assert len(conf._processed_files[conf.default_downloaded_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced downloaded files"
 
-    assert conf.default_extracted_files_column in conf.processed_files, \
+    assert conf.default_extracted_files_column in conf._processed_files, \
         "there should be references to extracted files"
-    assert len(conf.processed_files[conf.default_extracted_files_column].dropna()) == conf.max_num_files, \
+    assert len(conf._processed_files[conf.default_extracted_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced extracted files"
 
-    assert conf.default_mzmlid_parquet_files_column in conf.processed_files, \
+    assert conf.default_mzmlid_parquet_files_column in conf._processed_files, \
         f"there should be references to converted '*{conf.default_mzmlid_parquet_file_postfix}' files"
-    assert len(conf.processed_files[conf.default_mzmlid_parquet_files_column].dropna()) == conf.max_num_files/2, \
+    assert len(conf._processed_files[conf.default_mzmlid_parquet_files_column].dropna()) == conf.max_num_files / 2, \
         f"there should be exactly {conf.max_num_files/2} referenced converted " \
         f"'*{conf.default_mzmlid_parquet_file_postfix}' file"
 
@@ -59,7 +59,7 @@ def _run_mz_pipeline_in_single_steps_with_full_cache(conf: config.Config, logger
                                           catch_run_warnings=False,
                                           logger=logger)
 
-    downloaded_files = utils.merge_column_values(conf.processed_files, [conf.default_downloaded_files_column])
+    downloaded_files = utils.merge_column_values(conf._processed_files, [conf.default_downloaded_files_column])
     assert len(downloaded_files) == 0, "there should be no downloaded files in the second iteration"
 
     conf.clear_cache()
@@ -69,7 +69,7 @@ def _run_mz_pipeline_in_single_steps_with_full_cache(conf: config.Config, logger
                                           catch_run_warnings=False,
                                           logger=logger)
 
-    extracted_files = utils.merge_column_values(conf.processed_files, [conf.default_extracted_files_column])
+    extracted_files = utils.merge_column_values(conf._processed_files, [conf.default_extracted_files_column])
     assert len(extracted_files) == 0, "there should be no extracted files in the second iteration"
 
     conf.clear_cache()
@@ -79,7 +79,7 @@ def _run_mz_pipeline_in_single_steps_with_full_cache(conf: config.Config, logger
                                           catch_run_warnings=False,
                                           logger=logger)
 
-    downloaded_and_extracted_files = utils.merge_column_values(conf.processed_files,
+    downloaded_and_extracted_files = utils.merge_column_values(conf._processed_files,
                                                                [conf.default_mzmlid_parquet_files_column])
 
     assert len(downloaded_and_extracted_files) == 0, "there should be no converted files in the second iteration"
@@ -210,19 +210,19 @@ def _run_raw_mgf_pipeline_combined(conf: Config, logger: log.Logger):
     assert os.path.isfile(MGF_PARQUET_FILE), \
         "the mgf file should have been converted to parquet format"
 
-    assert conf.default_downloaded_files_column in conf.processed_files, \
+    assert conf.default_downloaded_files_column in conf._processed_files, \
         "there should be references to downloaded files"
-    assert len(conf.processed_files[conf.default_downloaded_files_column].dropna()) == conf.max_num_files, \
+    assert len(conf._processed_files[conf.default_downloaded_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced downloaded file"
 
-    assert conf.default_converted_raw_files_column in conf.processed_files, \
+    assert conf.default_converted_raw_files_column in conf._processed_files, \
         "there should be references to converted raw files"
-    assert len(conf.processed_files[conf.default_converted_raw_files_column].dropna()) == conf.max_num_files, \
+    assert len(conf._processed_files[conf.default_converted_raw_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced converted raw file"
 
-    assert conf.default_mgf_parquet_files_column in conf.processed_files, \
+    assert conf.default_mgf_parquet_files_column in conf._processed_files, \
         "there should be references to converted mgf files in parquet format"
-    assert len(conf.processed_files[conf.default_mgf_parquet_files_column].dropna()) == conf.max_num_files, \
+    assert len(conf._processed_files[conf.default_mgf_parquet_files_column].dropna()) == conf.max_num_files, \
         f"there should be exactly {conf.max_num_files} referenced converted mgf files in parquet format"
 
     if conf.max_num_files == 1:

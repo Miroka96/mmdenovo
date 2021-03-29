@@ -25,11 +25,11 @@ class DownloadCommand(AbstractCommand):
         return "download"
 
     def get_description(self) -> str:
-        return "download files from a given project"
+        return "download files from a given project."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         downloaded_files = pride.download(project_name=config.pride_project,
-                                          project_files=config.project_files,
+                                          project_files=config.get_project_files(),
                                           valid_file_extensions=config.valid_file_extensions,
                                           max_num_files=config.max_num_files,
                                           column_filter=config.column_filter,
@@ -46,7 +46,7 @@ class DownloadCommand(AbstractCommand):
 
         downloaded_files = downloaded_files.dropna(subset=[config.default_downloaded_files_column])
 
-        config.cache(data_df=downloaded_files)
+        config.cache_processed_files(data_df=downloaded_files)
         visualization.print_df(df=downloaded_files,
                                shown_columns=config.shown_columns + [config.default_downloaded_files_column],
                                urlencode_columns=[config.default_download_link_column],
@@ -67,7 +67,7 @@ class InfoCommand(AbstractCommand):
         return "info"
 
     def get_description(self) -> str:
-        return "request project information for a given project"
+        return "request project information for a given project."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
         project_info = pride.get_project_info(project_name=config.pride_project,
@@ -87,18 +87,15 @@ class ListCommand(AbstractCommand):
         return "list"
 
     def get_description(self) -> str:
-        return "list files and their attributes in a given project"
+        return "list files and their attributes in a given project."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        if config.project_files is None:
-            config.project_files = pride.get_project_files(project_name=config.pride_project,
-                                                           api_versions=config.pride_versions,
-                                                           logger=logger)
+        project_files = config.get_project_files()
 
-        if config.project_files is None:
+        if project_files is None:
             return
 
-        filtered_files = filters.filter_files_df(files_df=config.project_files,
+        filtered_files = filters.filter_files_df(files_df=project_files,
                                                  file_extensions=config.valid_file_extensions,
                                                  column_filter=config.column_filter,
                                                  sort=True,
@@ -125,8 +122,7 @@ class ExtractCommand(AbstractCommand):
                archives.get_string_of_extractable_file_extensions()
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        files = utils.merge_column_values(config.processed_files,
-                                          [config.default_downloaded_files_column])
+        files = config.get_processed_files(config.default_downloaded_files_column)
 
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
@@ -142,7 +138,8 @@ class ExtractCommand(AbstractCommand):
                                                  pre_filter_files=True,
                                                  logger=logger)
 
-        result_df = config.cache(data_list=extracted_files, column_names=config.default_extracted_files_column)
+        result_df = config.cache_processed_files(data_list=extracted_files,
+                                                 column_names=config.default_extracted_files_column)
         visualization.print_df(df=result_df, logger=logger)
 
 
@@ -158,9 +155,8 @@ class ConvertRawCommand(AbstractCommand):
                "This command requires an accessible Docker installation."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        files = utils.merge_column_values(config.processed_files,
-                                          [config.default_downloaded_files_column,
-                                           config.default_extracted_files_column])
+        files = config.get_processed_files(config.default_downloaded_files_column,
+                                           config.default_extracted_files_column)
 
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
@@ -188,7 +184,7 @@ class ConvertRawCommand(AbstractCommand):
                                                 thermo_exec_command=Config.default_thermo_exec_command,
                                                 logger=logger)
 
-        result_df = config.cache(converted_files, config.default_converted_raw_files_column)
+        result_df = config.cache_processed_files(converted_files, config.default_converted_raw_files_column)
 
         if not config.thermo_keep_container_running:
             raw.stop_thermo_docker_container(
@@ -211,13 +207,12 @@ class Mgf2ParquetCommand(AbstractCommand):
 
     def get_description(self) -> str:
         return "convert all downloaded, extracted, or converted mgf files into parquet format, or, " \
-               "if no files were previously processed, convert the mgf files in the data directory"
+               "if no files were previously processed, convert the mgf files in the data directory."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        files = utils.merge_column_values(config.processed_files,
-                                          [config.default_downloaded_files_column,
+        files = config.get_processed_files(config.default_downloaded_files_column,
                                            config.default_extracted_files_column,
-                                           config.default_converted_raw_files_column])
+                                           config.default_converted_raw_files_column)
 
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
@@ -234,7 +229,7 @@ class Mgf2ParquetCommand(AbstractCommand):
                                                              pre_filter_files=True,
                                                              logger=logger)
 
-        result_df = config.cache(mgf_parquet_files, config.default_mgf_parquet_files_column)
+        result_df = config.cache_processed_files(mgf_parquet_files, config.default_mgf_parquet_files_column)
         visualization.print_df(df=result_df, logger=logger)
 
 
@@ -247,9 +242,8 @@ class Mz2ParquetCommand(AbstractCommand):
                " or, if no files were previously processed, merge and convert the files in the data directory."
 
     def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
-        files = utils.merge_column_values(config.processed_files,
-                                          [config.default_downloaded_files_column,
-                                           config.default_extracted_files_column])
+        files = config.get_processed_files(config.default_downloaded_files_column,
+                                           config.default_extracted_files_column)
 
         if len(files) == 0:
             files = utils.list_files_in_directory(config.storage_dir)
@@ -264,8 +258,19 @@ class Mz2ParquetCommand(AbstractCommand):
                                                                        column_filter=config.column_filter,
                                                                        logger=logger)
 
-        result_df = config.cache(mzmlid_parquet_files, config.default_mzmlid_parquet_files_column)
+        result_df = config.cache_processed_files(mzmlid_parquet_files, config.default_mzmlid_parquet_files_column)
         visualization.print_df(df=result_df, logger=logger)
+
+
+class ShowConfigCommand(AbstractCommand):
+    def get_command(self) -> str:
+        return "showconfig"
+
+    def get_description(self) -> str:
+        return "print all variables of the current run configuration."
+
+    def run(self, config: Config, logger: log.Logger = log.DEFAULT_LOGGER) -> None:
+        print(config)
 
 
 class CommandDispatcher:
@@ -330,3 +335,4 @@ DISPATCHER.register(InfoCommand())
 DISPATCHER.register(ListCommand())
 DISPATCHER.register(Mgf2ParquetCommand())
 DISPATCHER.register(Mz2ParquetCommand())
+DISPATCHER.register(ShowConfigCommand())

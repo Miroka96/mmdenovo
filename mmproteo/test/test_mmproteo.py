@@ -166,6 +166,16 @@ def test_mmproteo_p_n_e_c_list_output():
     time.sleep(FAIR_USE_DELAY_SECONDS)
 
 
+def store_mmproteo_showconfig_output():
+    _store_command_output(command="mmproteo showconfig",
+                          filename="resources/mmproteo_showconfig_output.txt")
+
+
+def test_mmproteo_showconfig_output():
+    _compare_stdout_with_file(command="mmproteo showconfig",
+                              filename="resources/mmproteo_showconfig_output.txt")
+
+
 if __name__ == '__main__':
     # run this file as script to recreate the expected outputs
     store_mmproteo_output()
@@ -178,3 +188,4 @@ if __name__ == '__main__':
     store_mmproteo_p_e_gz_mzid_list_output()
     store_mmproteo_p_c_list_output()
     store_mmproteo_p_n_e_c_list_output()
+    store_mmproteo_showconfig_output()
