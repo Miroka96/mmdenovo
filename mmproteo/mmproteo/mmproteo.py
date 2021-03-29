@@ -38,16 +38,20 @@ def create_logger(config: Config) -> log.Logger:
 def main(config: Config = None, logger: log.Logger = None):
     if config is None:
         config = Config()
+        if logger is not None:
+            config.set_logger(logger)
         config.parse_arguments()
 
     try:
         config.validate_arguments()
 
         if logger is not None:
-            config.check(logger=logger)
+            config.set_logger(logger)
+            config.check()
         else:
             config.check()
             logger = create_logger(config)
+            config.set_logger(logger)
 
         if config.storage_dir is not None:
             os.chdir(config.storage_dir)

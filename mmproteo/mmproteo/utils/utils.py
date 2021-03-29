@@ -191,7 +191,7 @@ def is_docker_container_running(container_name: str) -> bool:
     return get_docker_container_status(container_name=container_name) == "running"
 
 
-def merge_column_values(df: Optional[pd.DataFrame], columns: List[str]) -> List[str]:
+def merge_column_values(df: Optional[pd.DataFrame], columns: Iterable[str]) -> List[str]:
     if df is None:
         return list()
 

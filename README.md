@@ -55,12 +55,12 @@ $ mmproteo -h
 usage: mmproteo [--count-failed-files] [--dummy-logger]
                 [--file-extensions EXT] [--filter COLUMN[=!]=REGEX] [--help]
                 [--log-file FILE] [--log-to-stdout] [--max-num-files N]
-                [--no-fail-early] [--no-skip-existing]
-                [--pride-project PROJECT] [--pride-version {1,2}]
-                [--shown-columns COLUMNS] [--storage-dir DIR]
-                [--thermo-keep-running]
-                [--thermo-output-format {imzml,mgf,mzml,parquet}] [--verbose]
-                [--version]
+                [--no-count-skipped-files] [--no-fail-early]
+                [--no-skip-existing] [--pride-project PROJECT]
+                [--pride-version {1,2}] [--shown-columns COLUMNS]
+                [--storage-dir DIR] [--thermo-keep-running]
+                [--thermo-output-format {imzml,mgf,mzml,parquet}]
+                [--thread-count THREADS] [--verbose] [--version]
                 COMMAND [COMMAND ...]
 
 positional arguments:
@@ -74,31 +74,33 @@ positional arguments:
                                       format using the ThermoRawFileParser.
                                       This command requires an accessible
                                       Docker installation.
-                        download    : download files from a given project
+                        download    : download files from a given project.
                         extract     : extract all downloaded archive files or,
                                       if none were downloaded, those in the
                                       data directory. Currently, the following
                                       archive formats are supported: "gz",
                                       "zip"
                         info        : request project information for a given
-                                      project
+                                      project.
                         list        : list files and their attributes in a
-                                      given project
+                                      given project.
                         mgf2parquet : convert all downloaded, extracted, or
                                       converted mgf files into parquet format,
                                       or, if no files were previously
                                       processed, convert the mgf files in the
-                                      data directory
+                                      data directory.
                         mz2parquet  : merge and convert all downloaded or
                                       extracted mzid and mzml files into
                                       parquet format or, if no files were
                                       previously processed, merge and convert
                                       the files in the data directory.
+                        showconfig  : print all variables of the current run
+                                      configuration.
 
 optional arguments:
-  --count-failed-files  Count failed files and do not just skip them. This is
-                        relevant for the max-num-files parameter. (default:
-                        True)
+  --count-failed-files  Count failed files and do not just ignore them. This
+                        is relevant for the max-num-files parameter. (default:
+                        False)
   --dummy-logger        Use a simpler log format and log to stdout. (default:
                         False)
   --file-extensions EXT, -e EXT
@@ -142,6 +144,10 @@ optional arguments:
   --max-num-files N, -n N
                         the maximum number of files to be downloaded. Set it
                         to '0' to download all files. (default: 0)
+  --no-count-skipped-files
+                        Do not count skipped files and just ignore them. This
+                        is relevant for the max-num-files parameter. (default:
+                        True)
   --no-fail-early       Do not fail commands already on failed assertions. The
                         code will run until a real exception is encountered or
                         it even succeeds. (default: False)
@@ -179,6 +185,11 @@ optional arguments:
                         the output format into which the raw file will be
                         converted. This parameter only applies to the
                         convertraw command. (default: mgf)
+  --thread-count THREADS
+                        the number of threads to use for parallel processing.
+                        Set it to '0' to use as many threads as there are CPU
+                        cores. Setting the number of threads to '1' disables
+                        parallel processing. (default: 1)
   --verbose, -v         Increase output verbosity to debug level. (default:
                         False)
   --version             Show the version of this software.
