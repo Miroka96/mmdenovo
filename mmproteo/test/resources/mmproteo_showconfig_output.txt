@@ -1,6 +1,4 @@
-2021-03-29 18:54:27,505 - MMProteo: Logging to file './mmproteo.log' and to <stderr>
-Defaults:
-                                        VARIABLE                                                                                                                                          VALUE
+                                STATIC VARIABLES                                                                                                                                         VALUES
                         default_application_name                                                                                                                                       mmproteo
               default_converted_raw_files_column                                                                                                                            converted_raw_files
                       default_count_failed_files                                                                                                                                          False
@@ -33,10 +31,9 @@ Defaults:
                     default_thermo_output_format                                                                                                                                            mgf
  default_thermo_start_container_command_template                                  docker run --rm -w /data -v {abs_storage_dir}:/data --name {container_name} -d {image_name} tail -f /dev/null
                             default_thread_count                                                                                                                                              1
-                            special_column_names  {fileName, converted_mgf_parquet_files, downloadLink, converted_mzmlid_parquet_files, converted_raw_files, downloaded_files, extracted_files}
+                            special_column_names  [converted_mgf_parquet_files, converted_mzmlid_parquet_files, converted_raw_files, downloadLink, downloaded_files, extracted_files, fileName]
 
-Dynamic variables:
-                      VARIABLE         VALUE
+             DYNAMIC VARIABLES        VALUES
                       commands  [showconfig]
             count_failed_files         False
            count_skipped_files          True
@@ -47,8 +44,6 @@ Dynamic variables:
                  max_num_files             0
                  pride_project          None
                 pride_versions            []
-               processed_files          None
-                 project_files          None
                  shown_columns            []
                  skip_existing          True
                    storage_dir             .
@@ -56,5 +51,5 @@ Dynamic variables:
  thermo_keep_container_running         False
           thermo_output_format           mgf
                   thread_count             1
-         valid_file_extensions            {}
+         valid_file_extensions            []
                        verbose         False

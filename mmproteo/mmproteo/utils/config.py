@@ -6,7 +6,7 @@ import pandas as pd
 
 import mmproteo.utils.filters
 from mmproteo._version import get_versions
-from mmproteo.utils import log, pride, utils
+from mmproteo.utils import log, utils
 
 __version__ = get_versions()['version']
 
@@ -132,6 +132,7 @@ class Config:
 
     def get_project_files(self) -> Optional[pd.DataFrame]:
         if self._project_files is None:
+            from mmproteo.utils import pride
             self._project_files = pride.get_project_files(project_name=self.pride_project,
                                                           api_versions=self.pride_versions,
                                                           logger=self._logger)
@@ -368,8 +369,14 @@ class Config:
         utils.ensure_dir_exists(self.storage_dir, logger=logger)
 
     @staticmethod
+    def __sort_if_set(obj: Optional[Union[Set, Any]]) -> Optional[Union[List, Any]]:
+        if type(obj) == set:
+            return sorted(obj)
+        return obj
+
+    @staticmethod
     def __filter_vars(variables: List[Tuple[str, Any]]) -> List[Tuple[str, Any]]:
-        return [(key, value) for key, value in variables
+        return [(key, Config.__sort_if_set(value)) for key, value in variables
                 if not key.startswith('_')
                 and not callable(value)
                 and not type(value) == staticmethod]
@@ -380,11 +387,9 @@ class Config:
         class_variables: List[Tuple[str, Any]] = sorted([(key, value) for key, value in vars(type(self)).items()])
         class_variables = self.__filter_vars(class_variables)
         lines = [
-            "Defaults:",
-            pd.DataFrame(data=class_variables, columns=['VARIABLE', 'VALUE']).to_string(index=False),
+            pd.DataFrame(data=class_variables, columns=['STATIC VARIABLES', 'VALUES']).to_string(index=False),
             "",
-            "Dynamic variables:",
-            pd.DataFrame(data=instance_variables, columns=['VARIABLE', 'VALUE']).to_string(index=False, )
+            pd.DataFrame(data=instance_variables, columns=['DYNAMIC VARIABLES', 'VALUES']).to_string(index=False, )
         ]
 
         return '\n'.join(lines)
