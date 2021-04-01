@@ -1,0 +1,3 @@
+[submodule "mmproteo"]
+	path = mmproteo
+	url = git@github.com:Miroka96/mmproteo.git
