@@ -1,4 +1,4 @@
-mmproteo~=0.4.0
+mmproteo
 pytest~=6.2.2
 pytest-cov
 sphinx==3.5.1
@@ -13,3 +13,6 @@ twine==3.3.0
 jupyter~=1.0.0
 tensorflow~=2.4.1
 numpy~=1.19.5
+xlrd
+openpyxl
+keyrings.alt
