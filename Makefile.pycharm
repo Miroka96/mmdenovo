@@ -1,0 +1,32 @@
+IMAGE = registry.jetbrains.team/p/prj/containers/projector-pycharm-p
+LOCAL_PORT = 8887
+PORT_PUBLISHING = -p $(LOCAL_PORT):8887
+CONTAINER_NAME = mmproteo-pycharm
+VOLUME_MOUNTING = -v ${PWD}:/home/projector-user/project -v $(CONTAINER_NAME)_data:/home/projector-user
+PARAMETERS = $(VOLUME_MOUNTING) -u $(shell id -u):$(shell id -g) $(PORT_PUBLISHING) $(IMAGE)
+
+.PHONY: pull test deploy-only deploy-prepare deploy stop rm undeploy redeploy
+
+pull:
+	docker pull $(IMAGE)
+
+test: pull
+	docker run -it --rm $(PARAMETERS)
+
+deploy-only:
+	docker run --restart always --detach --name=$(CONTAINER_NAME) $(PARAMETERS)
+
+deploy: | pull deploy-only
+
+stop:
+	-docker stop $(CONTAINER_NAME)
+
+rm:
+	-docker rm $(CONTAINER_NAME)
+
+undeploy: | stop rm
+
+redeploy: | pull undeploy deploy-only
+
+enter:
+	docker exec -it $(CONTAINER_NAME) /bin/bash
