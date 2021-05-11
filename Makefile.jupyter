@@ -26,7 +26,7 @@ deploy-prepare:
 	docker exec $(CONTAINER_NAME) pip install --upgrade -r /tf/workspace/requirements.txt
 
 token:
-	-docker logs $(CONTAINER_NAME) 2>&1 | grep \?token\= | tail -n 1 | grep -o 'http.*$$'
+	-docker logs $(CONTAINER_NAME) 2>&1 | egrep -o \?token\=\\S+ | tail -n 1 | cut -d "=" -f 2
 
 deploy: | deploy-only token deploy-prepare
 
