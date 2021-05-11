@@ -1,3 +1,6 @@
 [submodule "mmproteo"]
 	path = mmproteo
 	url = git@github.com:Miroka96/mmproteo.git
+[submodule "thesis"]
+	path = thesis
+	url = git@github.com:Miroka96/MMProteomics-master-thesis.git
