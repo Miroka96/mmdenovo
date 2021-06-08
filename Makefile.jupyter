@@ -1,6 +1,6 @@
 IMAGE = tensorflow/tensorflow:latest-gpu-jupyter
 LOCAL_PORT = 8888
-PORT_PUBLISHING = -p $(LOCAL_PORT):8888
+PORT_PUBLISHING = --network host
 VOLUME_MOUNTING = -v ${PWD}:/tf/workspace
 CONTAINER_NAME = gpu_jupyter
 GPU = --runtime=nvidia
