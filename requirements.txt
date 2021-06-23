@@ -1,12 +1,10 @@
+-r mmproteo/requirements.txt
 mmproteo~=0.7.0
-pandas~=1.1.5
-requests~=2.25.1
-pyteomics~=4.4.2
-wget~=3.2
 jupyter~=1.0.0
-tensorflow~=2.5.0
-tensorflow_datasets~=4.3.0
-numpy~=1.19.5
 xlrd~=2.0.1
 openpyxl~=3.0.7
 keyrings.alt~=4.0.2
+graphviz~=0.16
+pydot~=1.4.2
+pydotplus~=2.0.2
+pyyaml~=5.4.1
