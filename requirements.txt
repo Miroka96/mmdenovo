@@ -8,3 +8,5 @@ graphviz~=0.16
 pydot~=1.4.2
 pydotplus~=2.0.2
 pyyaml~=5.4.1
+tensorflow-text~=2.5.0
+tf-models-official~=2.5.0
