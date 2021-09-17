@@ -1,6 +1,6 @@
 # (data) processing
 -r mmproteo/requirements.txt
-mmproteo~=0.8.2
+mmproteo~=0.8.3
 tensorflow-text~=2.4.1
 tf-models-official~=2.4.0
 keras-tuner~=1.0.3
