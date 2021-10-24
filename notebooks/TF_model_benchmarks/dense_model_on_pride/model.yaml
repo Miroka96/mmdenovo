@@ -1,0 +1,307 @@
+backend: tensorflow
+class_name: Functional
+config:
+  input_layers:
+  - - mz_array
+    - 0
+    - 0
+  - - intensity_array
+    - 0
+    - 0
+  layers:
+  - class_name: InputLayer
+    config:
+      batch_input_shape: !!python/tuple
+      - null
+      - 2354
+      dtype: float32
+      name: mz_array
+      ragged: false
+      sparse: false
+    inbound_nodes: []
+    name: mz_array
+  - class_name: InputLayer
+    config:
+      batch_input_shape: !!python/tuple
+      - null
+      - 2354
+      dtype: float32
+      name: intensity_array
+      ragged: false
+      sparse: false
+    inbound_nodes: []
+    name: intensity_array
+  - class_name: Masking
+    config:
+      dtype: float32
+      mask_value: 0.0
+      name: masked_mz_array
+      trainable: true
+    inbound_nodes:
+    - - - mz_array
+        - 0
+        - 0
+        - {}
+    name: masked_mz_array
+  - class_name: Masking
+    config:
+      dtype: float32
+      mask_value: 0.0
+      name: masked_intensity_array
+      trainable: true
+    inbound_nodes:
+    - - - intensity_array
+        - 0
+        - 0
+        - {}
+    name: masked_intensity_array
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: stack
+      name: tf.stack
+      trainable: true
+    inbound_nodes:
+    - - - masked_mz_array
+        - 0
+        - 0
+        - &id001
+          axis: -1
+      - - masked_intensity_array
+        - 0
+        - 0
+        - *id001
+    name: tf.stack
+  - class_name: Flatten
+    config:
+      data_format: channels_last
+      dtype: float32
+      name: flattened_masked_inputs
+      trainable: true
+    inbound_nodes:
+    - - - tf.stack
+        - 0
+        - 0
+        - {}
+    name: flattened_masked_inputs
+  - class_name: Dense
+    config:
+      activation: linear
+      activity_regularizer: null
+      bias_constraint: null
+      bias_initializer:
+        class_name: Zeros
+        config: {}
+      bias_regularizer: null
+      dtype: float32
+      kernel_constraint: null
+      kernel_initializer:
+        class_name: GlorotUniform
+        config:
+          seed: null
+      kernel_regularizer: null
+      name: dense
+      trainable: true
+      units: 2048
+      use_bias: true
+    inbound_nodes:
+    - - - flattened_masked_inputs
+        - 0
+        - 0
+        - {}
+    name: dense
+  - class_name: Dense
+    config:
+      activation: linear
+      activity_regularizer: null
+      bias_constraint: null
+      bias_initializer:
+        class_name: Zeros
+        config: {}
+      bias_regularizer: null
+      dtype: float32
+      kernel_constraint: null
+      kernel_initializer:
+        class_name: GlorotUniform
+        config:
+          seed: null
+      kernel_regularizer: null
+      name: dense_1
+      trainable: true
+      units: 2048
+      use_bias: true
+    inbound_nodes:
+    - - - dense
+        - 0
+        - 0
+        - {}
+    name: dense_1
+  - class_name: Dense
+    config:
+      activation: linear
+      activity_regularizer: null
+      bias_constraint: null
+      bias_initializer:
+        class_name: Zeros
+        config: {}
+      bias_regularizer: null
+      dtype: float32
+      kernel_constraint: null
+      kernel_initializer:
+        class_name: GlorotUniform
+        config:
+          seed: null
+      kernel_regularizer: null
+      name: dense_2
+      trainable: true
+      units: 2048
+      use_bias: true
+    inbound_nodes:
+    - - - dense_1
+        - 0
+        - 0
+        - {}
+    name: dense_2
+  - class_name: Dense
+    config:
+      activation: linear
+      activity_regularizer: null
+      bias_constraint: null
+      bias_initializer:
+        class_name: Zeros
+        config: {}
+      bias_regularizer: null
+      dtype: float32
+      kernel_constraint: null
+      kernel_initializer:
+        class_name: GlorotUniform
+        config:
+          seed: null
+      kernel_regularizer: null
+      name: dense_3
+      trainable: true
+      units: 2048
+      use_bias: true
+    inbound_nodes:
+    - - - dense_2
+        - 0
+        - 0
+        - {}
+    name: dense_3
+  - class_name: Dense
+    config:
+      activation: linear
+      activity_regularizer: null
+      bias_constraint: null
+      bias_initializer:
+        class_name: Zeros
+        config: {}
+      bias_regularizer: null
+      dtype: float32
+      kernel_constraint: null
+      kernel_initializer:
+        class_name: GlorotUniform
+        config:
+          seed: null
+      kernel_regularizer: null
+      name: dense_4
+      trainable: true
+      units: 1150
+      use_bias: true
+    inbound_nodes:
+    - - - dense_3
+        - 0
+        - 0
+        - {}
+    name: dense_4
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: reshape
+      name: tf.reshape
+      trainable: true
+    inbound_nodes:
+    - - dense_4
+      - 0
+      - 0
+      - shape: !!python/tuple
+        - -1
+        - 50
+        - 23
+    name: tf.reshape
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: math.reduce_max
+      name: tf.math.reduce_max
+      trainable: true
+    inbound_nodes:
+    - - tf.reshape
+      - 0
+      - 0
+      - axis: -1
+        keepdims: true
+    name: tf.math.reduce_max
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: math.subtract
+      name: tf.math.subtract
+      trainable: true
+    inbound_nodes:
+    - - tf.reshape
+      - 0
+      - 0
+      - name: null
+        y:
+        - tf.math.reduce_max
+        - 0
+        - 0
+    name: tf.math.subtract
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: math.exp
+      name: tf.math.exp
+      trainable: true
+    inbound_nodes:
+    - - tf.math.subtract
+      - 0
+      - 0
+      - {}
+    name: tf.math.exp
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: math.reduce_sum
+      name: tf.math.reduce_sum
+      trainable: true
+    inbound_nodes:
+    - - tf.math.exp
+      - 0
+      - 0
+      - axis: -1
+        keepdims: true
+    name: tf.math.reduce_sum
+  - class_name: TFOpLambda
+    config:
+      dtype: float32
+      function: math.truediv
+      name: tf.math.truediv
+      trainable: true
+    inbound_nodes:
+    - - tf.math.exp
+      - 0
+      - 0
+      - name: null
+        y:
+        - tf.math.reduce_sum
+        - 0
+        - 0
+    name: tf.math.truediv
+  name: mmproteo_dense_pride_20211023-131020
+  output_layers:
+  - - tf.math.truediv
+    - 0
+    - 0
+keras_version: 2.4.0
