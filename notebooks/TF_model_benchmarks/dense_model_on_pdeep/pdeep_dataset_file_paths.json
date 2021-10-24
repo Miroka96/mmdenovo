@@ -1,0 +1,36 @@
+{
+    "Train": [
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_12.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_22.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_16.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_26.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_19.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_5.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_3.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_15.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_25.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_24.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_11.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_14.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_4.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_18.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/processing_info.json",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/mmproteo_dataset_generation.log",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_1.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_7.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_9.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_17.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_23.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_20.parquet"
+    ],
+    "Test": [
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_10.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_13.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_21.parquet"
+    ],
+    "Eval": [
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_6.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_8.parquet",
+        "/scratch/mirko.krause/pdeep/training_columns/tf_datasets/file_2.parquet"
+    ]
+}
